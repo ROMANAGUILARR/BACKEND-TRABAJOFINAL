@@ -8,7 +8,7 @@ ALTER TABLE usuario ADD COLUMN respuesta_pregunta TEXT NOT NULL;
 
 -- Agregar restricciones UNIQUE
 ALTER TABLE usuario ADD UNIQUE(nombre_usuario);
-ALTER TABLE usuario ADD UNIQUE(contrasena);
+ALTER TABLE usuario ADD ;
 
 -- Verificar cambios
 SELECT * FROM usuario;

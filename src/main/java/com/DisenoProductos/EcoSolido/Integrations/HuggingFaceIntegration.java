@@ -28,8 +28,12 @@ public class HuggingFaceIntegration {
     private String apiUrl;
 
     private final WebClient webClient = WebClient.create();
-    @Cacheable(value="descripciones",key = "#urlFotos.toString()")
-    public String describirFotos(List<String> urlFotos) {
+    @Cacheable(value="descripciones",key = "#imagenes.toString()")
+    public String describirFotos(List<String> imagenes) {
+        if (apiKey == null || apiKey.isBlank() || "dummy".equalsIgnoreCase(apiKey)) {
+            throw new HuggingFaceException(
+                    "HF_TOKEN no configurado. Agrega un token valido de Hugging Face en las variables de entorno.", null);
+        }
         try {
             List<Map<String, Object>> content = new ArrayList<>();
 
@@ -42,24 +46,31 @@ public class HuggingFaceIntegration {
                             "¿Podrías volver a pasarlas o cambiar de fotos?'"
             ));
 
-            for (String url : urlFotos) {
-                byte[] imageBytes = webClient.get()
-                        .uri(url)
-                        .retrieve()
-                        .bodyToMono(byte[].class)
-                        .block();
-
-                String base64 = Base64.getEncoder().encodeToString(imageBytes);
-                String dataUri = "data:image/jpeg;base64," + base64;
-
+            for (String entrada : imagenes) {
+                if (entrada == null || entrada.isBlank()) {
+                    continue;
+                }
+                String dataUri;
+                if (entrada.startsWith("data:image/")) {
+                    dataUri = entrada;
+                } else if (entrada.startsWith("http://") || entrada.startsWith("https://")) {
+                    byte[] imageBytes = webClient.get()
+                            .uri(entrada)
+                            .retrieve()
+                            .bodyToMono(byte[].class)
+                            .block();
+                    dataUri = "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(imageBytes);
+                } else {
+                    dataUri = "data:image/jpeg;base64," + entrada;
+                }
                 content.add(Map.of(
                         "type", "image_url",
-                        "image_url", Map.of("url", dataUri)  // ← Data URI en lugar de URL
+                        "image_url", Map.of("url", dataUri)
                 ));
             }
 
             Map<String, Object> body = Map.of(
-                    "model", "google/gemma-4-31B-it",
+                    "model", "Qwen/Qwen2-VL-7B-Instruct",
                     "messages", List.of(
                             Map.of("role", "user", "content", content)
                     )
@@ -124,7 +135,7 @@ public class HuggingFaceIntegration {
                 : "";
         try{
             Map<String, Object> body = Map.of(
-                    "model", "google/gemma-4-31B-it",
+                    "model", "Qwen/Qwen2-VL-7B-Instruct",
                     "max_tokens", 300,
                     "messages", List.of(
                             Map.of(

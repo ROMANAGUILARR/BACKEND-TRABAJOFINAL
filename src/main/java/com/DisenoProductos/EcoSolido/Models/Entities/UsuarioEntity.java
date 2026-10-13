@@ -20,7 +20,7 @@ public class UsuarioEntity {
     private String correoElectronico;
     @Column(name = "nombre_usuario",unique=true)
     private String nombreUsuario;
-    @Column(name="contrasena",unique=true)
+    @Column(name="contrasena", nullable = false)
     private String contrasena;
     @Column(name = "pregunta_seguridad")
     private String preguntaSeguridad;

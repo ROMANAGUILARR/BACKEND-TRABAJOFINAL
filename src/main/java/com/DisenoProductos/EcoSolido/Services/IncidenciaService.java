@@ -2,6 +2,7 @@ package com.DisenoProductos.EcoSolido.Services;
 
 import com.DisenoProductos.EcoSolido.Integrations.CloudinaryIntegration;
 import com.DisenoProductos.EcoSolido.Integrations.HuggingFaceIntegration;
+import com.DisenoProductos.EcoSolido.Models.DTOs.ActualizarIncidenciaDTO;
 import com.DisenoProductos.EcoSolido.Models.DTOs.IncidenciaRequestDTO;
 import com.DisenoProductos.EcoSolido.Models.DTOs.MetricasResponseDTO;
 import com.DisenoProductos.EcoSolido.Models.DTOs.SeguirIncidenciaResponseDTO;
@@ -169,67 +170,73 @@ public class IncidenciaService  {
     }
     public List<SeguirIncidenciaResponseDTO> mostrarIncidencias(String nombreUsuario){
         List<IncidenciaEntity> incidencias=incidenciaRepository.findByUsuario_NombreUsuarioConFotos(nombreUsuario);
-        return incidencias.stream().distinct().map(incidencia->{
-            SeguirIncidenciaResponseDTO muestraIncidencia=new SeguirIncidenciaResponseDTO();
-            muestraIncidencia.setIdIncidencia(incidencia.getIdIncidencia());
-            muestraIncidencia.setDescripcion(incidencia.getDescripcion());
-            muestraIncidencia.setEstado(incidencia.getEstado().name());
-            muestraIncidencia.setTitulo(incidencia.getTitulo());
-            muestraIncidencia.setFecha(incidencia.getFecha().toString());
-            muestraIncidencia.setUrlsImagenes(
-                    incidencia.getFotos().stream()
-                            .map(foto -> normalizarUrlCloudinary(foto.getUrlFoto()))
-                            .collect(Collectors.toList())
-            );
-            muestraIncidencia.setDireccionTexto(incidencia.getDireccionTexto());
-            return muestraIncidencia;
-        }).collect(Collectors.toList());
+        return incidencias.stream().distinct().map(this::aSeguirIncidenciaDTO).collect(Collectors.toList());
     }
     public List<SeguirIncidenciaResponseDTO> mostrarIncidenciasTotales(){
-        List<IncidenciaEntity> incidencias=incidenciaRepository.findAll();
-        return incidencias.stream().distinct().map(incidencia->{
-            SeguirIncidenciaResponseDTO muestraIncidencia=new SeguirIncidenciaResponseDTO();
-            muestraIncidencia.setIdIncidencia(incidencia.getIdIncidencia());
-            muestraIncidencia.setDescripcion(incidencia.getDescripcion());
-            muestraIncidencia.setEstado(incidencia.getEstado().name());
-            muestraIncidencia.setTitulo(incidencia.getTitulo());
-            muestraIncidencia.setFecha(incidencia.getFecha().toString());
-            muestraIncidencia.setUrlsImagenes(
-                    incidencia.getFotos().stream()
-                            .map(foto -> normalizarUrlCloudinary(foto.getUrlFoto()))
-                            .collect(Collectors.toList())
-            );
-            muestraIncidencia.setDireccionTexto(incidencia.getDireccionTexto());
-            return muestraIncidencia;
-        }).collect(Collectors.toList());
+        List<IncidenciaEntity> incidencias=incidenciaRepository.findAllConFotos();
+        return incidencias.stream().distinct().map(this::aSeguirIncidenciaDTO).collect(Collectors.toList());
     }
+
+    public List<SeguirIncidenciaResponseDTO> mostrarIncidenciasPorUsuario(Integer idUsuario){
+        List<IncidenciaEntity> incidencias=incidenciaRepository.findByUsuario_IdUsuarioConFotos(idUsuario);
+        return incidencias.stream().distinct().map(this::aSeguirIncidenciaDTO).collect(Collectors.toList());
+    }
+
     public SeguirIncidenciaResponseDTO cambiarEstado(Integer idIncidencia, IncidenciaEstados estado){
         IncidenciaEntity incidencia = incidenciaRepository.findById(idIncidencia)
                 .orElseThrow(() -> new EntityNotFoundException("Incidencia no encontrada: " + idIncidencia));
 
-        if(estado.name().equals("PENDIENTE")){
-            incidencia.setEstado(IncidenciaEstados.EN_PROCESO);
-        } else {
-            incidencia.setEstado(IncidenciaEstados.RESUELTO);
+        if (estado == null) {
+            throw new IllegalArgumentException("Debe indicar el nuevo estado de la incidencia");
+        }
+        incidencia.setEstado(estado);
+
+        IncidenciaEntity guardada = incidenciaRepository.save(incidencia);
+        return aSeguirIncidenciaDTO(guardada);
+    }
+
+    public SeguirIncidenciaResponseDTO actualizarIncidencia(Integer idIncidencia, ActualizarIncidenciaDTO dto) {
+        IncidenciaEntity incidencia = incidenciaRepository.findById(idIncidencia)
+                .orElseThrow(() -> new EntityNotFoundException("Incidencia no encontrada: " + idIncidencia));
+
+        incidencia.setTitulo(dto.getTitulo() != null && !dto.getTitulo().isBlank()
+                ? dto.getTitulo() : incidencia.getTitulo());
+        incidencia.setDescripcion(dto.getDescripcion());
+        incidencia.setCategoria(dto.getCategoria());
+        incidencia.setDireccionTexto(dto.getDireccionTexto());
+        incidencia.setLatitud(dto.getLatitud());
+        incidencia.setLongitud(dto.getLongitud());
+        if (dto.getEstado() != null) {
+            incidencia.setEstado(dto.getEstado());
         }
 
         IncidenciaEntity guardada = incidenciaRepository.save(incidencia);
+        return aSeguirIncidenciaDTO(guardada);
+    }
 
+    public void eliminarIncidencia(Integer idIncidencia) {
+        IncidenciaEntity incidencia = incidenciaRepository.findById(idIncidencia)
+                .orElseThrow(() -> new EntityNotFoundException("Incidencia no encontrada: " + idIncidencia));
+        incidenciaRepository.delete(incidencia);
+    }
+
+    private SeguirIncidenciaResponseDTO aSeguirIncidenciaDTO(IncidenciaEntity incidencia) {
         SeguirIncidenciaResponseDTO dto = new SeguirIncidenciaResponseDTO();
-        dto.setIdIncidencia(guardada.getIdIncidencia());
-        dto.setDescripcion(guardada.getDescripcion());
-        dto.setEstado(guardada.getEstado().name());
-        dto.setTitulo(guardada.getTitulo());
-        dto.setFecha(guardada.getFecha().toString());
+        dto.setIdIncidencia(incidencia.getIdIncidencia());
+        dto.setDescripcion(incidencia.getDescripcion());
+        dto.setEstado(incidencia.getEstado().name());
+        dto.setTitulo(incidencia.getTitulo());
+        dto.setFecha(incidencia.getFecha() != null ? incidencia.getFecha().toString() : null);
+        dto.setCategoria(incidencia.getCategoria());
         dto.setUrlsImagenes(
-                guardada.getFotos().stream()
+                incidencia.getFotos().stream()
                         .map(foto -> normalizarUrlCloudinary(foto.getUrlFoto()))
                         .collect(Collectors.toList())
         );
-        dto.setDireccionTexto(guardada.getDireccionTexto());
-
+        dto.setDireccionTexto(incidencia.getDireccionTexto());
         return dto;
     }
+
     public MetricasResponseDTO obtenerMetricas(String nombreUsuario) {
         long total = incidenciaRepository.countByUsuario_NombreUsuario(nombreUsuario);
         long enProceso = incidenciaRepository.countByUsuario_NombreUsuarioAndEstado(nombreUsuario, IncidenciaEstados.EN_PROCESO);

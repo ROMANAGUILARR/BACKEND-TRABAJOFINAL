@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -24,6 +26,12 @@ public class SecurityConfig {
     public SecurityConfig(JwtFilter jwtFilter) {
         this.jwtFilter = jwtFilter;
     }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -33,7 +41,22 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/usuario/**").permitAll()
+                        .requestMatchers("/api/health").permitAll()
+                        .requestMatchers(
+                                "/usuario/registrar",
+                                "/usuario/autenticar",
+                                "/usuario/verificar-cor-o-tel",
+                                "/usuario/pregunta-seguridad",
+                                "/usuario/verificar-respuesta",
+                                "/usuario/restablecer-contrasena"
+                        ).permitAll()
+                        // Gestión administrativa: solo rol ADMIN
+                        .requestMatchers(HttpMethod.GET, "/usuario/listar").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/incidencias/mostrarT").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/incidencias/usuario/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/incidencias/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/incidencias/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/incidencias/cambiarEstado/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
