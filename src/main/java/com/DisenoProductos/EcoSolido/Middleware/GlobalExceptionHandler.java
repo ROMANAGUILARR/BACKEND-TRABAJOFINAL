@@ -1,6 +1,7 @@
 package com.DisenoProductos.EcoSolido.Middleware;
 
 import com.DisenoProductos.EcoSolido.Services.HuggingFaceException;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -19,6 +20,30 @@ public class GlobalExceptionHandler {
                 .findFirst()
                 .orElse("Error de validación");
         return ResponseEntity.badRequest().body(mensaje);
+    }
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<?> handleEntityNotFound(EntityNotFoundException ex) {
+        return ResponseEntity.status(404)
+                .body(Map.of(
+                    "error", "No encontrado",
+                    "message", ex.getMessage() != null ? ex.getMessage() : "Recurso no encontrado."
+                ));
+    }
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<?> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        return ResponseEntity.status(403)
+                .body(Map.of(
+                    "error", "Acceso denegado",
+                    "message", "No tienes permisos para realizar esta acción."
+                ));
+    }
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<?> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest()
+                .body(Map.of(
+                    "error", "Solicitud inválida",
+                    "message", ex.getMessage() != null ? ex.getMessage() : "Datos inválidos."
+                ));
     }
     @ExceptionHandler(HuggingFaceException.class)
     public ResponseEntity<?> handleIAError(HuggingFaceException ex) {

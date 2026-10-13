@@ -34,9 +34,24 @@ public class IncidenciaController {
     public ResponseEntity<?> mostrarTodoIncidencias() {
         return ResponseEntity.ok(incidenciaService.mostrarIncidenciasTotales());
     }
+    @GetMapping("/usuario/{idUsuario}")
+    public ResponseEntity<?> mostrarIncidenciasPorUsuario(@PathVariable Integer idUsuario) {
+        return ResponseEntity.ok(incidenciaService.mostrarIncidenciasPorUsuario(idUsuario));
+    }
     @PatchMapping("/cambiarEstado/{idIncidencia}")
     public ResponseEntity<?> cambiarEstadoIncidencia(@PathVariable Integer idIncidencia, @RequestBody CambiarEstadoDTO body){
         return ResponseEntity.ok(incidenciaService.cambiarEstado(idIncidencia, body.getEstado()));
+    }
+    @PutMapping("/{idIncidencia}")
+    public ResponseEntity<?> actualizarIncidencia(
+            @PathVariable Integer idIncidencia,
+            @Valid @RequestBody ActualizarIncidenciaDTO body) {
+        return ResponseEntity.ok(incidenciaService.actualizarIncidencia(idIncidencia, body));
+    }
+    @DeleteMapping("/{idIncidencia}")
+    public ResponseEntity<?> eliminarIncidencia(@PathVariable Integer idIncidencia) {
+        incidenciaService.eliminarIncidencia(idIncidencia);
+        return ResponseEntity.noContent().build();
     }
     @PostMapping("/registrar")
     public ResponseEntity<?> logroRegistrarIncidencia(

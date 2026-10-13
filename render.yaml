@@ -1,0 +1,52 @@
+# render.yaml — despliegue de EcoSolido en Render.com
+# Documentación: https://render.com/docs/blueprint-spec
+services:
+  # ---------------- Backend Spring Boot ----------------
+  - type: web
+    name: ecosolido-backend
+    runtime: docker
+    repo: https://github.com/ROMANAGUILARR/BACKEND-TRABAJOFINAL
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DB_URL
+        sync: false          # jdbc:mysql://... (Aiven u otro)
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: TOKEN_SECRET_VALUE
+        generateValue: true
+      - key: HF_TOKEN
+        sync: false
+      - key: RENIEC_API_TOKEN
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false
+      - key: MYSQLDUMP_PATH
+        value: mysqldump
+
+  # ---------------- Frontend React (Static Site) ----------------
+  - type: web
+    name: ecosolido-frontend
+    runtime: static
+    repo: https://github.com/ROMANAGUILARR/FRONTEND-TRABAJOFINAL
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: ecosolido-backend
+          envVarKey: RENDER_EXTERNAL_URL

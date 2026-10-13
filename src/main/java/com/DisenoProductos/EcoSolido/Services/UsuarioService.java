@@ -7,10 +7,13 @@ import com.DisenoProductos.EcoSolido.Models.States.Rol;
 import com.DisenoProductos.EcoSolido.Repositories.UsuarioRepository;
 import com.DisenoProductos.EcoSolido.Security.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class UsuarioService {
@@ -20,17 +23,27 @@ public class UsuarioService {
     private final RENIECIntegration reniecIntegration;
     @Autowired
     private JwtUtil jwtUtil;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     public UsuarioService(UsuarioRepository usuarioRepository, RENIECIntegration reniecIntegration) {
         this.usuarioRepository = usuarioRepository;
         this.reniecIntegration = reniecIntegration;
     }
-    public UsuarioEntity registrarUsuario(CrearUsuarioRequestDTO usuarioRequestDTO) throws Exception {
+
+    public CrearUsuarioResponseDTO registrarUsuario(CrearUsuarioRequestDTO usuarioRequestDTO) throws Exception {
+        if (usuarioRepository.findByNombreUsuario(usuarioRequestDTO.getNombreUsuario()).isPresent()) {
+            throw new RuntimeException("El nombre de usuario ya está en uso");
+        }
+        if (usuarioRepository.existsByCorreoElectronico(usuarioRequestDTO.getCorreoElectronico())) {
+            throw new RuntimeException("El correo electrónico ya está registrado");
+        }
         UsuarioEntity usuario = new UsuarioEntity();
         usuario.setNombreCompleto(usuarioRequestDTO.getNombreCompleto());
         usuario.setApellidoCompleto(usuarioRequestDTO.getApellidoCompleto());
         usuario.setDni(usuarioRequestDTO.getDni());
         usuario.setNombreUsuario(usuarioRequestDTO.getNombreUsuario());
-        usuario.setContrasena(usuarioRequestDTO.getContrasena());
+        usuario.setContrasena(passwordEncoder.encode(usuarioRequestDTO.getContrasena()));
         usuario.setTelefono(usuarioRequestDTO.getTelefono());
         usuario.setCorreoElectronico(usuarioRequestDTO.getCorreoElectronico());
         usuario.setPreguntaSeguridad(usuarioRequestDTO.getPreguntaSeguridad());
@@ -41,25 +54,62 @@ public class UsuarioService {
                 usuario.getApellidoCompleto())) {
             throw new RuntimeException("El DNI no coincide con los nombres y apellidos en RENIEC");
         }
-        return usuarioRepository.save(usuario);
+        UsuarioEntity guardado = usuarioRepository.save(usuario);
+        return aCrearUsuarioResponse(guardado);
     }
+
     private LoginRequestDTO loginRequest(String nombreUsuario,String contrasena){
         LoginRequestDTO requestDTO=new LoginRequestDTO();
         requestDTO.setNombreUsuario(nombreUsuario);
         requestDTO.setContrasena(contrasena);
         return requestDTO;
     }
+
     public LoginResponseDTO autenticarUsuario(String nombreUsuario, String contrasena){
         LoginRequestDTO requestDTO=loginRequest(nombreUsuario, contrasena);
         UsuarioEntity usuario = usuarioRepository
                 .findByNombreUsuario(requestDTO.getNombreUsuario())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        if (!usuario.getContrasena().equals(requestDTO.getContrasena())) {
-            throw new RuntimeException("Contraseña incorrecta");
+                .orElseThrow(() -> new RuntimeException("Usuario o contraseña incorrectos"));
+        if (!passwordEncoder.matches(requestDTO.getContrasena(), usuario.getContrasena())) {
+            throw new RuntimeException("Usuario o contraseña incorrectos");
         }
-        String nuevoToken = jwtUtil.generarToken(usuario.getNombreUsuario());
+        String nuevoToken = jwtUtil.generarToken(usuario.getNombreUsuario(),
+                usuario.getRol() != null ? usuario.getRol().name() : "CIUDADANO");
         return new LoginResponseDTO(nuevoToken, usuario.getNombreUsuario(),usuario.getRol(),usuario.getPuntos());
     }
+
+    public List<UsuarioListarDTO> listarUsuarios() {
+        return usuarioRepository.findAll().stream()
+                .map(this::aUsuarioListarDTO)
+                .collect(Collectors.toList());
+    }
+
+    private CrearUsuarioResponseDTO aCrearUsuarioResponse(UsuarioEntity usuario) {
+        CrearUsuarioResponseDTO dto = new CrearUsuarioResponseDTO();
+        dto.setIdUsuario(usuario.getIdUsuario());
+        dto.setNombreCompleto(usuario.getNombreCompleto());
+        dto.setApellidoCompleto(usuario.getApellidoCompleto());
+        dto.setNombreUsuario(usuario.getNombreUsuario());
+        dto.setCorreoElectronico(usuario.getCorreoElectronico());
+        dto.setRol(usuario.getRol());
+        dto.setPuntos(usuario.getPuntos());
+        return dto;
+    }
+
+    private UsuarioListarDTO aUsuarioListarDTO(UsuarioEntity usuario) {
+        UsuarioListarDTO dto = new UsuarioListarDTO();
+        dto.setIdUsuario(usuario.getIdUsuario());
+        dto.setNombreCompleto(usuario.getNombreCompleto());
+        dto.setApellidoCompleto(usuario.getApellidoCompleto());
+        dto.setDni(usuario.getDni());
+        dto.setTelefono(usuario.getTelefono());
+        dto.setCorreoElectronico(usuario.getCorreoElectronico());
+        dto.setNombreUsuario(usuario.getNombreUsuario());
+        dto.setPuntos(usuario.getPuntos());
+        dto.setRol(usuario.getRol());
+        return dto;
+    }
+
     public VerificarCorreoTelResponseDTO verificarCorreoOTelefono(VerificarCorreoTelRequestDTO requestDTO) {
         boolean existe;
         if (requestDTO.getCorreo() != null && !requestDTO.getCorreo().isEmpty()) {
@@ -115,7 +165,7 @@ public class UsuarioService {
         }
         UsuarioEntity usuario = usuarioOpt
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        usuario.setContrasena(requestDTO.getNuevaContrasena());
+        usuario.setContrasena(passwordEncoder.encode(requestDTO.getNuevaContrasena()));
         usuarioRepository.save(usuario);
         response.setExito(true);
         return response;

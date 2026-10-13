@@ -8,7 +8,15 @@ public class SeguirIncidenciaResponseDTO {
     private String estado;
     private String titulo;
     private String fecha;
+    private String categoria;
     private String direccionTexto;
+
+    public String getCategoria() {
+        return categoria;
+    }
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
+    }
     public String getDireccionTexto() {
         return direccionTexto;
     }
