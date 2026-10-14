@@ -97,7 +97,9 @@ public class IncidenciaController {
                     resultado.get("titulo")
             ));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Ocurrio un error al procesar las imagenes con Inteligencia Artificial.");
+            e.printStackTrace();
+            String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return ResponseEntity.internalServerError().body("Error IA: " + errorMsg);
         }
     }
     @PostMapping("/subir-fotos")
