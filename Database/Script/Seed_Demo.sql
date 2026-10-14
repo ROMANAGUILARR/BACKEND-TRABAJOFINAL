@@ -4,7 +4,7 @@
 --
 -- Credenciales:
 --   admin / Palacios13579     (rol ADMIN)
---   GASPER / Palacios10       (rol GASPER)
+--   GASPER / Palacios10       (rol CIUDADANO)
 -- ============================================================
 
 USE EcoSolido;
@@ -36,7 +36,7 @@ INSERT INTO usuario (
   0, 'ADMIN'
 );
 
--- GASPER
+-- GASPER (rol CIUDADANO)
 INSERT INTO usuario (
   nombre_completo, apellido_completo, dni, telefono,
   correo_electronico, nombre_usuario, contrasena,
@@ -46,7 +46,7 @@ INSERT INTO usuario (
   'juan@ecosolido.com', 'GASPER',
   '$2a$10$S31TREoqBAQ3HzGxl/BgHem1nifeXhhmeH5QdAscbDv5v3FgPCS5G',
   '¿Cuál es el nombre de la mascota?', 'rex',
-  50, 'GASPER'
+  50, 'CIUDADANO'
 );
 
 -- Incidencias de ejemplo
