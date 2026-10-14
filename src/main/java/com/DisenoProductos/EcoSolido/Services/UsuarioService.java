@@ -4,6 +4,7 @@ import com.DisenoProductos.EcoSolido.Integrations.RENIECIntegration;
 import com.DisenoProductos.EcoSolido.Models.DTOs.*;
 import com.DisenoProductos.EcoSolido.Models.Entities.UsuarioEntity;
 import com.DisenoProductos.EcoSolido.Models.States.Rol;
+import com.DisenoProductos.EcoSolido.Repositories.IncidenciaRepository;
 import com.DisenoProductos.EcoSolido.Repositories.UsuarioRepository;
 import com.DisenoProductos.EcoSolido.Security.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,8 @@ public class UsuarioService {
     private JwtUtil jwtUtil;
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private IncidenciaRepository incidenciaRepository;
 
     public UsuarioService(UsuarioRepository usuarioRepository, RENIECIntegration reniecIntegration) {
         this.usuarioRepository = usuarioRepository;
@@ -110,6 +113,7 @@ public class UsuarioService {
         dto.setNombreUsuario(usuario.getNombreUsuario());
         dto.setPuntos(usuario.getPuntos());
         dto.setRol(usuario.getRol());
+        dto.setTotalIncidencias(incidenciaRepository.countByUsuario_NombreUsuario(usuario.getNombreUsuario()));
         return dto;
     }
 

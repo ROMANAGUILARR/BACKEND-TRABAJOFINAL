@@ -160,21 +160,25 @@ public class IncidenciaService  {
         return urls;
     }
 
+    @Transactional
     public List<SeguirIncidenciaResponseDTO> mostrarIncidencias(String nombreUsuario){
         List<IncidenciaEntity> incidencias=incidenciaRepository.findByUsuario_NombreUsuarioConFotos(nombreUsuario);
         return incidencias.stream().distinct().map(this::aSeguirIncidenciaDTO).collect(Collectors.toList());
     }
 
+    @Transactional
     public List<SeguirIncidenciaResponseDTO> mostrarIncidenciasTotales(){
         List<IncidenciaEntity> incidencias=incidenciaRepository.findAllConFotos();
         return incidencias.stream().distinct().map(this::aSeguirIncidenciaDTO).collect(Collectors.toList());
     }
 
+    @Transactional
     public List<SeguirIncidenciaResponseDTO> mostrarIncidenciasPorUsuario(Integer idUsuario){
         List<IncidenciaEntity> incidencias=incidenciaRepository.findByUsuario_IdUsuarioConFotos(idUsuario);
         return incidencias.stream().distinct().map(this::aSeguirIncidenciaDTO).collect(Collectors.toList());
     }
 
+    @Transactional
     public SeguirIncidenciaResponseDTO cambiarEstado(Integer idIncidencia, IncidenciaEstados estado){
         IncidenciaEntity incidencia = incidenciaRepository.findById(idIncidencia)
                 .orElseThrow(() -> new EntityNotFoundException("Incidencia no encontrada: " + idIncidencia));
@@ -188,6 +192,7 @@ public class IncidenciaService  {
         return aSeguirIncidenciaDTO(guardada);
     }
 
+    @Transactional
     public SeguirIncidenciaResponseDTO actualizarIncidencia(Integer idIncidencia, ActualizarIncidenciaDTO dto) {
         IncidenciaEntity incidencia = incidenciaRepository.findById(idIncidencia)
                 .orElseThrow(() -> new EntityNotFoundException("Incidencia no encontrada: " + idIncidencia));
@@ -242,6 +247,13 @@ public class IncidenciaService  {
                         .collect(Collectors.toList())
         );
         dto.setDireccionTexto(incidencia.getDireccionTexto());
+        UsuarioEntity usuario = incidencia.getUsuario();
+        if (usuario != null) {
+            dto.setNombreUsuario(usuario.getNombreUsuario());
+            String nombre = ((usuario.getNombreCompleto() == null ? "" : usuario.getNombreCompleto()) + " "
+                    + (usuario.getApellidoCompleto() == null ? "" : usuario.getApellidoCompleto())).trim();
+            dto.setReportadoPor(nombre.isEmpty() ? usuario.getNombreUsuario() : nombre);
+        }
         return dto;
     }
 

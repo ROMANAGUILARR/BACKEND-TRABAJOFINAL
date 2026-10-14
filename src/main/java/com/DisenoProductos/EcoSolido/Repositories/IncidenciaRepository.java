@@ -11,13 +11,13 @@ import java.util.List;
 
 public interface IncidenciaRepository extends JpaRepository<IncidenciaEntity,Integer> {
     // Mejora de código eficiente: Resuelve el N+1 trayendo la incidencia y sus fotos en un solo viaje de red a Aiven
-    @Query("SELECT DISTINCT i FROM IncidenciaEntity i LEFT JOIN FETCH i.fotos WHERE i.usuario.nombreUsuario = :nombreUsuario")
+    @Query("SELECT DISTINCT i FROM IncidenciaEntity i LEFT JOIN FETCH i.fotos LEFT JOIN FETCH i.usuario WHERE i.usuario.nombreUsuario = :nombreUsuario")
     List<IncidenciaEntity> findByUsuario_NombreUsuarioConFotos(@Param("nombreUsuario") String nombreUsuario);
 
-    @Query("SELECT DISTINCT i FROM IncidenciaEntity i LEFT JOIN FETCH i.fotos WHERE i.usuario.idUsuario = :idUsuario")
+    @Query("SELECT DISTINCT i FROM IncidenciaEntity i LEFT JOIN FETCH i.fotos LEFT JOIN FETCH i.usuario WHERE i.usuario.idUsuario = :idUsuario")
     List<IncidenciaEntity> findByUsuario_IdUsuarioConFotos(@Param("idUsuario") Integer idUsuario);
 
-    @Query("SELECT DISTINCT i FROM IncidenciaEntity i LEFT JOIN FETCH i.fotos")
+    @Query("SELECT DISTINCT i FROM IncidenciaEntity i LEFT JOIN FETCH i.fotos LEFT JOIN FETCH i.usuario")
     List<IncidenciaEntity> findAllConFotos();
 
     long countByUsuario_NombreUsuario(String nombreUsuario);

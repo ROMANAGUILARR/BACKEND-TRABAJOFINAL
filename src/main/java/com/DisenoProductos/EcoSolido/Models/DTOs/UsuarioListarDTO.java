@@ -12,6 +12,9 @@ public class UsuarioListarDTO {
     private String nombreUsuario;
     private Integer puntos;
     private Rol rol;
+    private Long totalIncidencias;
+    public Long getTotalIncidencias() { return totalIncidencias; }
+    public void setTotalIncidencias(Long totalIncidencias) { this.totalIncidencias = totalIncidencias; }
 
     public Integer getIdUsuario() { return idUsuario; }
     public void setIdUsuario(Integer idUsuario) { this.idUsuario = idUsuario; }

@@ -10,6 +10,20 @@ public class SeguirIncidenciaResponseDTO {
     private String fecha;
     private String categoria;
     private String direccionTexto;
+    private String nombreUsuario;
+    private String reportadoPor;
+    public String getNombreUsuario() {
+        return nombreUsuario;
+    }
+    public void setNombreUsuario(String nombreUsuario) {
+        this.nombreUsuario = nombreUsuario;
+    }
+    public String getReportadoPor() {
+        return reportadoPor;
+    }
+    public void setReportadoPor(String reportadoPor) {
+        this.reportadoPor = reportadoPor;
+    }
 
     public String getCategoria() {
         return categoria;
