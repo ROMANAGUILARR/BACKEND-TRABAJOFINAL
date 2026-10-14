@@ -2,14 +2,10 @@ package com.DisenoProductos.EcoSolido.Integrations;
 
 import com.DisenoProductos.EcoSolido.Models.DTOs.GenerarRecomendacionesRequest;
 import com.DisenoProductos.EcoSolido.Services.HuggingFaceException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -26,56 +22,73 @@ public class HuggingFaceIntegration {
     @Value("${huggingface.api.url}")
     private String apiUrl;
 
+    @Value("${gemini.api.key:}")
+    private String geminiApiKey;
+
     private final WebClient webClient = WebClient.create();
 
-    @Cacheable(value="descripciones",key = "#imagenes.toString()")
     public Map<String, String> describirYTitrular(List<String> imagenes) {
-        if (apiKey == null || apiKey.isBlank() || "dummy".equalsIgnoreCase(apiKey)) {
+        if (geminiApiKey == null || geminiApiKey.isBlank()) {
             throw new HuggingFaceException(
-                    "HF_TOKEN no configurado. Agrega un token valido de Hugging Face en las variables de entorno.", null);
+                    "GEMINI_API_KEY no configurado. Agrega la clave de Google Gemini en las variables de entorno.", null);
         }
         try {
-            List<Map<String, Object>> content = new ArrayList<>();
+            List<Map<String, Object>> parts = new ArrayList<>();
 
-            content.add(Map.of(
-                    "type", "text",
-                    "text", "Analiza estas imágenes de una incidencia ambiental urbana. " +
+            parts.add(Map.of(
+                    "text", "Analiza estas imagenes de una incidencia ambiental urbana. " +
                             "Responde EXACTAMENTE con este formato, sin texto adicional:\n" +
-                            "TITULO: <título corto de máximo 6 palabras>\n" +
-                            "DESCRIPCION: <descripción de 2 oraciones sobre lo que ves en la imagen>"
+                            "TITULO: <titulo corto de maximo 6 palabras>\n" +
+                            "DESCRIPCION: <descripcion de 2 oraciones sobre lo que ves en la imagen>"
             ));
 
             for (String entrada : imagenes) {
                 if (entrada == null || entrada.isBlank()) continue;
-                String dataUri;
+
+                String base64Data;
                 if (entrada.startsWith("data:image/")) {
-                    dataUri = entrada;
+                    int commaIndex = entrada.indexOf(",");
+                    base64Data = entrada.substring(commaIndex + 1);
                 } else if (entrada.startsWith("http://") || entrada.startsWith("https://")) {
                     byte[] imageBytes = webClient.get()
                             .uri(entrada)
                             .retrieve()
                             .bodyToMono(byte[].class)
                             .block();
-                    dataUri = "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(imageBytes);
+                    base64Data = Base64.getEncoder().encodeToString(imageBytes);
                 } else {
-                    dataUri = "data:image/jpeg;base64," + entrada;
+                    base64Data = entrada;
                 }
-                content.add(Map.of(
-                        "type", "image_url",
-                        "image_url", Map.of("url", dataUri)
+
+                String mimeType = "image/jpeg";
+                if (entrada.contains("data:image/png")) {
+                    mimeType = "image/png";
+                } else if (entrada.contains("data:image/webp")) {
+                    mimeType = "image/webp";
+                }
+
+                parts.add(Map.of(
+                        "inlineData", Map.of(
+                                "mimeType", mimeType,
+                                "data", base64Data
+                        )
                 ));
             }
 
             Map<String, Object> body = Map.of(
-                    "model", "meta-llama/Llama-3.2-11B-Vision-Instruct",
-                    "messages", List.of(
-                            Map.of("role", "user", "content", content)
+                    "contents", List.of(
+                            Map.of("parts", parts)
+                    ),
+                    "generationConfig", Map.of(
+                            "maxOutputTokens", 300,
+                            "temperature", 0.4
                     )
             );
 
+            String geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + geminiApiKey;
+
             Map response = webClient.post()
-                    .uri(apiUrl)
-                    .header("Authorization", "Bearer " + apiKey)
+                    .uri(geminiUrl)
                     .header("Content-Type", "application/json")
                     .bodyValue(body)
                     .retrieve()
@@ -83,9 +96,10 @@ public class HuggingFaceIntegration {
                     .timeout(Duration.ofSeconds(60))
                     .block();
 
-            List<Map> choices = (List<Map>) response.get("choices");
-            Map message = (Map) choices.get(0).get("message");
-            String respuestaCompleta = (String) message.get("content");
+            List<Map> candidates = (List<Map>) response.get("candidates");
+            Map content = (Map) candidates.get(0).get("content");
+            List<Map> responseParts = (List<Map>) content.get("parts");
+            String respuestaCompleta = (String) responseParts.get(0).get("text");
 
             String titulo = "";
             String descripcion = respuestaCompleta;
@@ -103,10 +117,8 @@ public class HuggingFaceIntegration {
             return Map.of("descripcion", descripcion, "titulo", titulo);
 
         } catch (Exception e) {
-            if (e instanceof WebClientResponseException wce) {
-                System.err.println("Error HF: " + wce.getResponseBodyAsString());
-            }
-            throw new HuggingFaceException("No se pudieron describir las fotos.", e);
+            System.err.println("Error Gemini: " + e.getMessage());
+            throw new HuggingFaceException("No se pudieron describir las fotos con la IA.", e);
         }
     }
 
