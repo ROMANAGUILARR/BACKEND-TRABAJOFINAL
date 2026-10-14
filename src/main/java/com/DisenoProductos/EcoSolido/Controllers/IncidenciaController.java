@@ -121,6 +121,6 @@ public class IncidenciaController {
         String nombreUsuario = authentication.getName();
         UsuarioEntity usuario = usuarioService.obtenerUsuarioPorNombreUsuario(nombreUsuario)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        return ResponseEntity.ok(Map.of("puntos", usuario.getPuntos()));
+        return ResponseEntity.ok(Map.of("puntos", incidenciaService.sincronizarPuntos(usuario)));
     }
 }
