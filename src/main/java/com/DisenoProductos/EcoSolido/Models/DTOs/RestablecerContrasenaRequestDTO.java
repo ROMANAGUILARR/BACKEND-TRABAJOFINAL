@@ -5,6 +5,13 @@ public class RestablecerContrasenaRequestDTO {
     private String telefono;            // ← uno u otro
     private String nuevaContrasena;
     private String nuevaContrasenaRepetida;
+    private String respuesta;           // respuesta de seguridad, se vuelve a validar
+    public String getRespuesta() {
+        return respuesta;
+    }
+    public void setRespuesta(String respuesta) {
+        this.respuesta = respuesta;
+    }
     public String getNuevaContrasena() {
         return nuevaContrasena;
     }
