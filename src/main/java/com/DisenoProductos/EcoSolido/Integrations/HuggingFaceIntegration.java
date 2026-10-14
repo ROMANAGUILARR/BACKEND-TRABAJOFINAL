@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.util.retry.Retry;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -31,14 +33,26 @@ public class HuggingFaceIntegration {
     @Value("${gemini.fallback.model:gemini-3.1-flash-lite}")
     private String geminiFallbackModel;
 
+    @Value("${gemini.fallback2.model:gemini-3.5-flash}")
+    private String geminiFallbackModel2;
+
     // Limite de 10MB para poder descargar fotos (el default de WebClient es 256KB)
     private final WebClient webClient = WebClient.builder()
             .codecs(c -> c.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
             .build();
 
+    private List<String> modelosGemini() {
+        List<String> modelos = new ArrayList<>();
+        for (String m : new String[]{geminiModel, geminiFallbackModel, geminiFallbackModel2}) {
+            if (m != null && !m.isBlank() && !modelos.contains(m)) modelos.add(m);
+        }
+        return modelos;
+    }
+
     private String llamarGemini(String modelo, Map<String, Object> body) {
         String geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + modelo + ":generateContent";
 
+        // Reintenta cuando Google esta saturado (503) o limita la cuota por minuto (429)
         Map response = webClient.post()
                 .uri(geminiUrl)
                 .header("Content-Type", "application/json")
@@ -47,6 +61,11 @@ public class HuggingFaceIntegration {
                 .retrieve()
                 .bodyToMono(Map.class)
                 .timeout(Duration.ofSeconds(60))
+                .retryWhen(Retry.backoff(2, Duration.ofSeconds(1))
+                        .filter(e -> e instanceof WebClientResponseException w
+                                && (w.getStatusCode().value() == 503 || w.getStatusCode().value() == 429
+                                    || w.getStatusCode().value() == 500))
+                        .onRetryExhaustedThrow((spec, signal) -> signal.failure()))
                 .block();
 
         if (response == null) return null;
@@ -131,7 +150,7 @@ public class HuggingFaceIntegration {
 
             String respuestaCompleta = null;
             Exception ultimoError = null;
-            for (String modelo : List.of(geminiModel, geminiFallbackModel)) {
+            for (String modelo : modelosGemini()) {
                 if (modelo == null || modelo.isBlank()) continue;
                 try {
                     respuestaCompleta = llamarGemini(modelo, body);
@@ -166,50 +185,155 @@ public class HuggingFaceIntegration {
         }
     }
 
-    public List<String> generarRecomendaciones(GenerarRecomendacionesRequest request){
-        String contextoExtra = (request.getContexto() != null && !request.getContexto().isBlank())
-                ? " Contexto adicional: " + request.getContexto() + "."
-                : "";
-        try{
-            Map<String, Object> body = Map.of(
-                    "model", "Qwen/Qwen2-VL-7B-Instruct",
-                    "max_tokens", 300,
-                    "messages", List.of(
-                            Map.of(
-                                    "role", "user",
-                                    "content", "Genera exactamente 2 recomendaciones practicas y diferentes " +
-                                            "para un ciudadano de Lima sobre como manejar correctamente residuos de tipo: '" +
-                                            request.getTipoMaterial() + "'." + contextoExtra +
-                                            " Responde SOLO con un JSON con este formato exacto, sin texto adicional: " +
-                                            "{\"recomendaciones\": [\"recomendacion1\", \"recomendacion2\"]}"
-                            )
-                    )
-            );
-            Map response = webClient.post()
-                    .uri(apiUrl)
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
-                    .bodyValue(body)
-                    .retrieve()
-                    .bodyToMono(Map.class)
-                    .block();
-            List<Map> choices = (List<Map>) response.get("choices");
-            Map message = (Map) choices.get(0).get("message");
-            String contenido = (String) message.get("content");
-            String jsonLimpio = contenido
-                    .replaceAll("```json", "")
-                    .replaceAll("```", "")
-                    .trim();
-            int inicio = jsonLimpio.indexOf('{');
-            int fin = jsonLimpio.lastIndexOf('}') + 1;
-            if (inicio >= 0 && fin > inicio) {
-                jsonLimpio = jsonLimpio.substring(inicio, fin);
-            }
-            ObjectMapper mapper = new ObjectMapper();
-            Map<String, List<String>> resultado = mapper.readValue(jsonLimpio, Map.class);
-            return resultado.get("recomendaciones");
-        } catch (Exception e) {
-            throw new HuggingFaceException("No se pudieron generar las recomendaciones.", e);
+    private static final int MIN_RECOMENDACIONES = 4;
+
+    private String describirCategoria(String tipoMaterial) {
+        String t = tipoMaterial == null ? "" : tipoMaterial.toLowerCase();
+        if (t.contains("no aprovechable")) {
+            return "residuos inorganicos NO aprovechables (no reciclables): papel higienico y servilletas usadas, " +
+                    "panales, toallas higienicas, envolturas metalizadas, tecnopor sucio, colillas, residuos sanitarios. " +
+                    "En Peru van en el contenedor NEGRO segun la NTP 900.058:2019";
         }
+        if (t.contains("inorg")) {
+            return "residuos inorganicos aprovechables (reciclables): papel, carton, botellas PET, plasticos rigidos, " +
+                    "vidrio, latas y metales, tetrapak. En Peru van en el contenedor BLANCO segun la NTP 900.058:2019";
+        }
+        if (t.contains("org")) {
+            return "residuos organicos: restos de comida, cascaras de frutas y verduras, cafe, poda y hojas. " +
+                    "En Peru van en el contenedor MARRON segun la NTP 900.058:2019 y se pueden compostar";
+        }
+        return "residuos solidos de tipo '" + tipoMaterial + "'";
+    }
+
+    private List<String> recomendacionesBase(String tipoMaterial) {
+        String t = tipoMaterial == null ? "" : tipoMaterial.toLowerCase();
+        if (t.contains("no aprovechable")) {
+            return List.of(
+                    "Separa papel higiénico, pañales, toallas higiénicas y envolturas metalizadas en un tacho con tapa y bolsa negra.",
+                    "Envuelve los residuos sanitarios en papel o una bolsa pequeña antes de botarlos para evitar olores y contagios.",
+                    "No mezcles estos residuos con los reciclables: un cartón manchado con grasa o comida ya no se puede reciclar.",
+                    "Reduce su generación prefiriendo productos sin empaques metalizados ni tecnopor, y usando pañales o toallas reutilizables cuando sea posible.",
+                    "Saca la bolsa bien cerrada solo en el horario del camión recolector de tu distrito para no atraer animales ni plagas."
+            );
+        }
+        if (t.contains("inorg")) {
+            return List.of(
+                    "Separa papel, cartón, botellas PET, vidrio y latas en un tacho o bolsa blanca, aparte de los restos de comida.",
+                    "Enjuaga y seca los envases antes de guardarlos: un residuo limpio vale más y no genera malos olores.",
+                    "Aplasta botellas, latas y cajas de cartón para que ocupen menos espacio mientras las acumulas.",
+                    "Reutiliza frascos de vidrio y bolsas antes de desecharlos, y evita los plásticos de un solo uso.",
+                    "Entrega tus reciclables al programa de segregación de tu municipalidad o a un reciclador formalizado de tu zona."
+            );
+        }
+        return List.of(
+                "Separa cáscaras, restos de frutas y verduras, café y hojas en un recipiente con tapa exclusivo para orgánicos.",
+                "Escurre bien los restos de comida y no agregues líquidos, para evitar malos olores y la aparición de moscas.",
+                "Planifica tus compras y aprovecha sobras en nuevas comidas para reducir el desperdicio de alimentos.",
+                "Haz compost en casa con tus orgánicos y hojas secas para obtener abono natural para tus plantas.",
+                "Si no compostas, entrega tus orgánicos en bolsa marrón o al programa de valorización de orgánicos de tu municipalidad."
+        );
+    }
+
+    private String promptRecomendaciones(GenerarRecomendacionesRequest request) {
+        String contexto = request.getContexto() == null ? "" : request.getContexto().trim();
+        return "Eres un educador ambiental de Lima, Peru. Genera entre 4 y 6 recomendaciones practicas, concretas " +
+                "y diferentes entre si para que un ciudadano maneje correctamente " +
+                describirCategoria(request.getTipoMaterial()) + ". " +
+                "Cubre separacion en casa, almacenamiento, reduccion/reutilizacion y disposicion final o reciclaje. " +
+                (contexto.isEmpty() ? "" :
+                        "El ciudadano pide especificamente lo siguiente, prioriza responder a esto: \"" + contexto + "\". ") +
+                "Cada recomendacion debe ser una sola oracion clara en espanol de maximo 35 palabras, sin numeracion. " +
+                "Responde SOLO con JSON valido con este formato exacto: " +
+                "{\"recomendaciones\": [\"...\", \"...\", \"...\", \"...\"]}";
+    }
+
+    private List<String> parsearRecomendaciones(String contenido) throws Exception {
+        if (contenido == null) return List.of();
+        String jsonLimpio = contenido.replaceAll("```json", "").replaceAll("```", "").trim();
+        int inicio = jsonLimpio.indexOf('{');
+        int fin = jsonLimpio.lastIndexOf('}') + 1;
+        if (inicio >= 0 && fin > inicio) {
+            jsonLimpio = jsonLimpio.substring(inicio, fin);
+        }
+        Map<String, Object> resultado = new ObjectMapper().readValue(jsonLimpio, Map.class);
+        List<String> lista = new ArrayList<>();
+        Object recs = resultado.get("recomendaciones");
+        if (recs instanceof List<?> l) {
+            for (Object o : l) {
+                if (o != null && !o.toString().isBlank()) lista.add(o.toString().trim());
+            }
+        }
+        return lista;
+    }
+
+    private List<String> recomendacionesConGemini(String prompt) throws Exception {
+        Map<String, Object> body = Map.of(
+                "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
+                "generationConfig", Map.of(
+                        "maxOutputTokens", 2048,
+                        "temperature", 0.7,
+                        "responseMimeType", "application/json",
+                        "thinkingConfig", Map.of("thinkingLevel", "low")
+                )
+        );
+        Exception ultimoError = null;
+        for (String modelo : modelosGemini()) {
+            if (modelo == null || modelo.isBlank()) continue;
+            try {
+                List<String> recs = parsearRecomendaciones(llamarGemini(modelo, body));
+                if (recs.size() >= MIN_RECOMENDACIONES) return recs;
+                ultimoError = new IllegalStateException("La IA devolvio solo " + recs.size() + " recomendaciones");
+            } catch (Exception e) {
+                ultimoError = e;
+                System.err.println("Error Gemini recomendaciones (" + modelo + "): " + e.getMessage());
+            }
+        }
+        throw ultimoError != null ? ultimoError : new IllegalStateException("Sin modelos Gemini configurados");
+    }
+
+    private List<String> recomendacionesConHuggingFace(String prompt) throws Exception {
+        Map<String, Object> body = Map.of(
+                "model", "Qwen/Qwen2.5-7B-Instruct",
+                "max_tokens", 800,
+                "messages", List.of(Map.of("role", "user", "content", prompt))
+        );
+        Map response = webClient.post()
+                .uri(apiUrl)
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .timeout(Duration.ofSeconds(60))
+                .block();
+        List<Map> choices = (List<Map>) response.get("choices");
+        Map message = (Map) choices.get(0).get("message");
+        return parsearRecomendaciones((String) message.get("content"));
+    }
+
+    public List<String> generarRecomendaciones(GenerarRecomendacionesRequest request) {
+        String prompt = promptRecomendaciones(request);
+        Exception error = null;
+
+        if (geminiApiKey != null && !geminiApiKey.isBlank()) {
+            try {
+                return recomendacionesConGemini(prompt);
+            } catch (Exception e) {
+                error = e;
+            }
+        }
+        if (apiKey != null && !apiKey.isBlank()) {
+            try {
+                List<String> recs = recomendacionesConHuggingFace(prompt);
+                if (!recs.isEmpty()) return recs;
+            } catch (Exception e) {
+                error = e;
+                System.err.println("Error Hugging Face recomendaciones: " + e.getMessage());
+            }
+        }
+        // Si ninguna IA responde, se entregan recomendaciones base de la categoria
+        System.err.println("IA no disponible para recomendaciones, se usan las recomendaciones base: "
+                + (error != null ? error.getMessage() : "sin GEMINI_API_KEY ni HF_TOKEN"));
+        return recomendacionesBase(request.getTipoMaterial());
     }
 }
