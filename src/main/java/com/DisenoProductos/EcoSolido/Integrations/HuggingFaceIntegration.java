@@ -68,7 +68,7 @@ public class HuggingFaceIntegration {
                 }
 
                 parts.add(Map.of(
-                        "inlineData", Map.of(
+                        "inline_data", Map.of(
                                 "mimeType", mimeType,
                                 "data", base64Data
                         )
