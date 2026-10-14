@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 import com.DisenoProductos.EcoSolido.Repositories.UsuarioRepository;
-import com.DisenoProductos.EcoSolido.Services.DuplicateIncidentException;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
