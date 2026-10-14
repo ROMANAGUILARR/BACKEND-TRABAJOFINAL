@@ -7,10 +7,12 @@ public class IncidenciaRequestDTO {
     private String descripcion;
     @NotBlank(message = "No se ha podido registrar su incidencia. Debe establecer la categoría de la incidencia.")
     private String categoria;
+    private String titulo;
     private Double latitud;
     private Double longitud;
     @NotBlank(message="No se ha podido registrar su incidencia. Debe establecer su ubicación")
     private String direccionTexto;
+
     public Double getLatitud() {
         return latitud;
     }
@@ -49,5 +51,13 @@ public class IncidenciaRequestDTO {
 
     public void setCategoria(String categoria) {
         this.categoria = categoria;
+    }
+
+    public String getTitulo() {
+        return titulo;
+    }
+
+    public void setTitulo(String titulo) {
+        this.titulo = titulo;
     }
 }
