@@ -89,7 +89,7 @@ public class IncidenciaService  {
         for (IncidenciaEntity prev : posiblesDuplicados) {
             double distancia = calcularDistancia(prev.getLatitud(), prev.getLongitud(), incidenciaDTO.getLatitud(), incidenciaDTO.getLongitud());
             if (distancia <= 50.0) {
-                throw new DuplicateIncidentException("Esta incidencia ya fue registrada anteriormente. No se asignarán puntos adicionales.");
+                throw new DuplicateIncidentException("Esta incidencia ya fue registrada anteriormente. No se asignaran puntos adicionales.");
             }
         }
 
@@ -98,16 +98,11 @@ public class IncidenciaService  {
         incidencia.setCategoria(incidenciaDTO.getCategoria());
         incidencia.setUsuario(usuario);
 
-        // Usar titulo enviado por el frontend si existe, si no generar con IA
         String titulo;
         if (incidenciaDTO.getTitulo() != null && !incidenciaDTO.getTitulo().isBlank()) {
             titulo = incidenciaDTO.getTitulo();
         } else if (incidenciaDTO.getDescripcion() != null && incidenciaDTO.getDescripcion().trim().length() > 5) {
-            try {
-                titulo = huggingFaceIntegration.generarTitulo(incidenciaDTO.getDescripcion());
-            } catch (Exception e) {
-                titulo = "Incidencia #" + incidenciaDTO.getCategoria();
-            }
+            titulo = "Incidencia #" + incidenciaDTO.getCategoria();
         } else {
             titulo = "Incidencia #" + incidenciaDTO.getCategoria();
         }
@@ -147,19 +142,10 @@ public class IncidenciaService  {
 
     public Map<String, String> generarDescripcionYTitulo(List<String> urlFotos){
         if (urlFotos == null || urlFotos.isEmpty()) {
-            return Map.of("descripcion", "No se proporcionaron imágenes.", "titulo", "");
+            return Map.of("descripcion", "No se proporcionaron imagenes.", "titulo", "");
         }
         try {
-            String descripcion = huggingFaceIntegration.describirFotos(urlFotos);
-            String titulo = "";
-            if (descripcion != null && descripcion.trim().length() > 5) {
-                try {
-                    titulo = huggingFaceIntegration.generarTitulo(descripcion);
-                } catch (Exception e) {
-                    titulo = "";
-                }
-            }
-            return Map.of("descripcion", descripcion, "titulo", titulo);
+            return huggingFaceIntegration.describirYTitrular(urlFotos);
         } catch (Exception e) {
             throw new HuggingFaceException("No se pudo describir la foto.", e);
         }
