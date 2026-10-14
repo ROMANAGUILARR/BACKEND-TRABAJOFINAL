@@ -38,6 +38,9 @@ public class UsuarioService {
         if (usuarioRepository.existsByCorreoElectronico(usuarioRequestDTO.getCorreoElectronico())) {
             throw new RuntimeException("El correo electrónico ya está registrado");
         }
+        if (usuarioRepository.existsByTelefono(usuarioRequestDTO.getTelefono())) {
+            throw new RuntimeException("El teléfono ya está registrado");
+        }
         UsuarioEntity usuario = new UsuarioEntity();
         usuario.setNombreCompleto(usuarioRequestDTO.getNombreCompleto());
         usuario.setApellidoCompleto(usuarioRequestDTO.getApellidoCompleto());
@@ -47,12 +50,12 @@ public class UsuarioService {
         usuario.setTelefono(usuarioRequestDTO.getTelefono());
         usuario.setCorreoElectronico(usuarioRequestDTO.getCorreoElectronico());
         usuario.setPreguntaSeguridad(usuarioRequestDTO.getPreguntaSeguridad());
-        usuario.setRespuestaPregunta(usuarioRequestDTO.getRespuestaPregunta().toLowerCase());
+        usuario.setRespuestaPregunta(usuarioRequestDTO.getRespuestaPregunta().trim().toLowerCase());
         usuario.setRol(Rol.CIUDADANO);
         if (!reniecIntegration.validarDni(usuario.getDni(),
                 usuario.getNombreCompleto(),
                 usuario.getApellidoCompleto())) {
-            throw new RuntimeException("El DNI no coincide con los nombres y apellidos en RENIEC");
+            throw new RuntimeException("El DNI no coincide con los nombres y apellidos registrados en RENIEC");
         }
         UsuarioEntity guardado = usuarioRepository.save(usuario);
         return aCrearUsuarioResponse(guardado);
@@ -145,8 +148,7 @@ public class UsuarioService {
         }
         UsuarioEntity usuario = usuarioOpt
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        boolean coinciden = usuario.getRespuestaPregunta()
-                .equalsIgnoreCase(requestDTO.getRespuesta().toLowerCase());
+        boolean coinciden = respuestaCorrecta(usuario, requestDTO.getRespuesta());
         RespuestaSeguridadResponseDTO response = new RespuestaSeguridadResponseDTO();
         response.setCoinciden(coinciden);
         return response;
@@ -165,9 +167,21 @@ public class UsuarioService {
         }
         UsuarioEntity usuario = usuarioOpt
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        if (!respuestaCorrecta(usuario, requestDTO.getRespuesta())) {
+            throw new RuntimeException("La respuesta de seguridad es incorrecta");
+        }
+        if (requestDTO.getNuevaContrasena() == null || requestDTO.getNuevaContrasena().length() < 6) {
+            throw new RuntimeException("La contraseña debe tener al menos 6 caracteres");
+        }
         usuario.setContrasena(passwordEncoder.encode(requestDTO.getNuevaContrasena()));
         usuarioRepository.save(usuario);
         response.setExito(true);
         return response;
+    }
+
+    private boolean respuestaCorrecta(UsuarioEntity usuario, String respuesta) {
+        return respuesta != null
+                && usuario.getRespuestaPregunta() != null
+                && usuario.getRespuestaPregunta().trim().equalsIgnoreCase(respuesta.trim());
     }
 }

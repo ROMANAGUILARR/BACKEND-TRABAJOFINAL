@@ -56,6 +56,10 @@ public class UsuarioController {
     @PostMapping("/verificar-cor-o-tel")
     public ResponseEntity<?> verificarCorrOTel(@RequestBody VerificarCorreoTelRequestDTO requestDTO) {
         VerificarCorreoTelResponseDTO response = usuarioService.verificarCorreoOTelefono(requestDTO);
+        if (!response.isEstaRegistrado()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("No existe una cuenta registrada con ese correo o teléfono");
+        }
         return ResponseEntity.ok(response);
     }
 
@@ -77,8 +81,15 @@ public class UsuarioController {
 
     @PostMapping("/verificar-respuesta")
     public ResponseEntity<?> verificarRespuesta(@RequestBody RespuestaSeguridadRequestDTO requestDTO2){
-        RespuestaSeguridadResponseDTO response=usuarioService.verificarRespuesta(requestDTO2);
-        return ResponseEntity.ok(response);
+        try {
+            RespuestaSeguridadResponseDTO response = usuarioService.verificarRespuesta(requestDTO2);
+            if (!response.isCoinciden()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("La respuesta de seguridad es incorrecta");
+            }
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
     }
 
     @PatchMapping("/restablecer-contrasena")
