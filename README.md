@@ -228,3 +228,4 @@ curl -X POST http://localhost:8080/usuario/autenticar \
 
 Proyecto académico — Universidad Tecnológica del Perú (UTP)  
 Ciclo VIII — Herramientas de Desarrollo
+Desarrollado por [ROMANAGUILARR](https://github.com/ROMANAGUILARR)
