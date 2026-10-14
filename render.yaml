@@ -1,4 +1,4 @@
-﻿# EcoSolido Backend — Render
+# EcoSolido Backend — Render
 services:
   - type: web
     name: ecosolido-backend
@@ -34,6 +34,3 @@ services:
         sync: false
       - key: DB_PASSWORD
         sync: false
-
-      - key: MYSQLDUMP_PATH
-        value: /usr/bin/mysqldump
