@@ -1,33 +1,33 @@
-﻿FROM maven:3.9.9-eclipse-temurin-21 AS builder
+# ---------- Build ----------
+FROM maven:3.9.9-eclipse-temurin-21 AS builder
 
 WORKDIR /app
 
+# Dependencias en una capa propia: solo se re-descargan si cambia pom.xml
 COPY pom.xml .
-RUN mvn -q -DskipTests dependency:go-offline
+RUN mvn -B -q dependency:go-offline
 
 COPY src ./src
-COPY .mvn ./.mvn
-COPY mvnw .
-COPY mvnw.cmd .
+RUN mvn -B -q -DskipTests package \
+    && mv target/*.jar app.jar \
+    && java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
 
-RUN mvn -DskipTests package
-
-FROM eclipse-temurin:21-jre
+# ---------- Runtime ----------
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
-RUN apt-get update && apt-get install -y \
-    default-mysql-client \
-    && rm -rf /var/lib/apt/lists/*
 
-ENV PORT=8080
-ENV SPRING_PROFILES_ACTIVE=prod
+ENV PORT=8080 \
+    SPRING_PROFILES_ACTIVE=prod \
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k -XX:+ExitOnOutOfMemoryError"
 
-COPY --from=builder /app/target/*.jar /app/app.jar
-
-RUN mkdir -p /app/uploads/products /app/uploads/backups /app/certs
-RUN touch /app/certs/ca.pem
+# Capas del jar ordenadas de menos a mas cambiantes para aprovechar la cache
+COPY --from=builder /app/extracted/dependencies/ ./
+COPY --from=builder /app/extracted/spring-boot-loader/ ./
+COPY --from=builder /app/extracted/snapshot-dependencies/ ./
+COPY --from=builder /app/extracted/application/ ./
 
 EXPOSE 8080
 
-# Render inyecta PORT; Spring tambien la lee via server.port=${PORT:8080}
-ENTRYPOINT ["sh", "-c", "java -jar /app/app.jar --server.port=${PORT:-8080}"]
+# Render inyecta PORT; Spring la lee via server.port=${PORT:8080}
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
