@@ -54,7 +54,7 @@ public class IncidenciaService  {
     }
 
     private double calcularDistancia(double lat1, double lon1, double lat2, double lon2) {
-        int R = 6371000; // Radio de la Tierra en metros
+        int R = 6371000;
         double phi1 = Math.toRadians(lat1);
         double phi2 = Math.toRadians(lat2);
         double deltaPhi = Math.toRadians(lat2 - lat1);
@@ -65,7 +65,7 @@ public class IncidenciaService  {
                 Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-        return R * c; // en metros
+        return R * c;
     }
 
     @Transactional
@@ -76,13 +76,11 @@ public class IncidenciaService  {
         boolean tieneArchivos = fotos != null && !fotos.isEmpty() && fotos.stream().anyMatch(f -> !f.isEmpty());
 
         if (!tieneUrls && !tieneArchivos) {
-            // Tu GlobalExceptionHandler captura IllegalStateException y devuelve un HTTP 500 con este mensaje
             throw new IllegalStateException("Debe adjuntar al menos 1 foto");
         }
         UsuarioEntity usuario = usuarioRepository.findByNombreUsuario(nombreUsuario)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        // HU011: Validar incidencia duplicada (50m)
         List<IncidenciaEntity> posiblesDuplicados = incidenciaRepository.findByUsuario_NombreUsuarioAndCategoriaAndDescripcion(
                 nombreUsuario,
                 incidenciaDTO.getCategoria(),
@@ -99,10 +97,12 @@ public class IncidenciaService  {
         incidencia.setDescripcion(incidenciaDTO.getDescripcion());
         incidencia.setCategoria(incidenciaDTO.getCategoria());
         incidencia.setUsuario(usuario);
+
+        // Usar titulo enviado por el frontend si existe, si no generar con IA
         String titulo;
-        /* Mejora para tener código eficiente:
-        Validar longitud de texto para evitar peticiones vacías a la IA (Llama)*/
-        if (incidenciaDTO.getDescripcion() != null && incidenciaDTO.getDescripcion().trim().length() > 5) {
+        if (incidenciaDTO.getTitulo() != null && !incidenciaDTO.getTitulo().isBlank()) {
+            titulo = incidenciaDTO.getTitulo();
+        } else if (incidenciaDTO.getDescripcion() != null && incidenciaDTO.getDescripcion().trim().length() > 5) {
             try {
                 titulo = huggingFaceIntegration.generarTitulo(incidenciaDTO.getDescripcion());
             } catch (Exception e) {
@@ -112,10 +112,10 @@ public class IncidenciaService  {
             titulo = "Incidencia #" + incidenciaDTO.getCategoria();
         }
         incidencia.setTitulo(titulo);
+
         List<IncidenciaFotoEntity> fotosEntidad = new ArrayList<>();
 
         if (urlsFotos != null && !urlsFotos.isEmpty()) {
-            // Usó IA, ya están en Cloudinary
             for (String url : urlsFotos) {
                 IncidenciaFotoEntity fotoEntidad = new IncidenciaFotoEntity();
                 fotoEntidad.setUrlFoto(url);
@@ -123,7 +123,6 @@ public class IncidenciaService  {
                 fotosEntidad.add(fotoEntidad);
             }
         } else {
-            // No usó IA, subir fotos a Cloudinary
             for (MultipartFile foto : fotos) {
                 Map resultado = cloudinaryIntegration.subir(foto);
                 IncidenciaFotoEntity fotoEntidad = new IncidenciaFotoEntity();
@@ -140,25 +139,32 @@ public class IncidenciaService  {
         incidencia.setDireccionTexto(incidenciaDTO.getDireccionTexto());
         incidenciaRepository.save(incidencia);
 
-        // HU011: Asignar puntos al usuario
         usuario.setPuntos(usuario.getPuntos() + PUNTOS_POR_INCIDENCIA);
         usuarioRepository.save(usuario);
 
-        // HU012: Evaluar y desbloquear insignias
         return insigniaService.evaluarYDesbloquearInsignias(nombreUsuario);
     }
-    public String generarDescripcion(List<String> urlFotos){
-        /* Mejora para tener código eficiente:
-        Validar que existan fotos antes de realizar llamadas a la GPU de Hugging Face*/
+
+    public Map<String, String> generarDescripcionYTitulo(List<String> urlFotos){
         if (urlFotos == null || urlFotos.isEmpty()) {
-            return "No se proporcionaron imágenes.";
+            return Map.of("descripcion", "No se proporcionaron imágenes.", "titulo", "");
         }
         try {
-            return huggingFaceIntegration.describirFotos(urlFotos);
+            String descripcion = huggingFaceIntegration.describirFotos(urlFotos);
+            String titulo = "";
+            if (descripcion != null && descripcion.trim().length() > 5) {
+                try {
+                    titulo = huggingFaceIntegration.generarTitulo(descripcion);
+                } catch (Exception e) {
+                    titulo = "";
+                }
+            }
+            return Map.of("descripcion", descripcion, "titulo", titulo);
         } catch (Exception e) {
             throw new HuggingFaceException("No se pudo describir la foto.", e);
         }
     }
+
     public List<String> subirFotos(List<MultipartFile> fotos) throws IOException {
         List<String> urls = new ArrayList<>();
         for (MultipartFile foto : fotos) {
@@ -168,10 +174,12 @@ public class IncidenciaService  {
         }
         return urls;
     }
+
     public List<SeguirIncidenciaResponseDTO> mostrarIncidencias(String nombreUsuario){
         List<IncidenciaEntity> incidencias=incidenciaRepository.findByUsuario_NombreUsuarioConFotos(nombreUsuario);
         return incidencias.stream().distinct().map(this::aSeguirIncidenciaDTO).collect(Collectors.toList());
     }
+
     public List<SeguirIncidenciaResponseDTO> mostrarIncidenciasTotales(){
         List<IncidenciaEntity> incidencias=incidenciaRepository.findAllConFotos();
         return incidencias.stream().distinct().map(this::aSeguirIncidenciaDTO).collect(Collectors.toList());
@@ -252,11 +260,10 @@ public class IncidenciaService  {
         dto.setIncidenciasEsteMes(incidenciasEsteMes);
         return dto;
     }
+
     private String normalizarUrlCloudinary(String url) {
         if (url == null) return null;
-        // Si ya tiene f_auto,q_auto, la devuelve tal cual
         if (url.contains("f_auto,q_auto")) return url;
-        // Si no, agrega la optimización
         if (url.contains("/upload/")) {
             return url.replace("/upload/", "/upload/f_auto,q_auto/");
         }
