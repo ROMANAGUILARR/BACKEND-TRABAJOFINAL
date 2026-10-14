@@ -88,11 +88,14 @@ public class IncidenciaController {
     @PostMapping("/generar-descripcion")
     public ResponseEntity<?> generarDescripcion(@RequestBody DescribirFotosRequestDTO request){
         if (request.getImagenes() == null || request.getImagenes().isEmpty()) {
-            return ResponseEntity.badRequest().body("Debe adjuntar al menos 1 foto para generar una descripciÃ³n.");
+            return ResponseEntity.badRequest().body("Debe adjuntar al menos 1 foto para generar una descripción.");
         }
         try {
-            String descripcion = incidenciaService.generarDescripcion(request.getImagenes());
-            return ResponseEntity.ok(new DescribirFotosResponseDTO(descripcion));
+            Map<String, String> resultado = incidenciaService.generarDescripcionYTitulo(request.getImagenes());
+            return ResponseEntity.ok(new DescribirFotosResponseDTO(
+                    resultado.get("descripcion"),
+                    resultado.get("titulo")
+            ));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Ocurrio un error al procesar las imagenes con Inteligencia Artificial.");
         }
@@ -111,7 +114,6 @@ public class IncidenciaController {
                     .body("Error al subir las fotos.");
         }
     }
-    // HU011: Endpoint para consultar puntos del usuario autenticado
     @GetMapping("/puntos")
     public ResponseEntity<?> obtenerPuntos(Authentication authentication) {
         String nombreUsuario = authentication.getName();
