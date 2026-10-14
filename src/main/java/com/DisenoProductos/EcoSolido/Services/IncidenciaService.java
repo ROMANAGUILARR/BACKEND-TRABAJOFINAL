@@ -134,8 +134,7 @@ public class IncidenciaService  {
         incidencia.setDireccionTexto(incidenciaDTO.getDireccionTexto());
         incidenciaRepository.save(incidencia);
 
-        usuario.setPuntos(usuario.getPuntos() + PUNTOS_POR_INCIDENCIA);
-        usuarioRepository.save(usuario);
+        sincronizarPuntos(usuario);
 
         return insigniaService.evaluarYDesbloquearInsignias(nombreUsuario);
     }
@@ -211,7 +210,22 @@ public class IncidenciaService  {
     public void eliminarIncidencia(Integer idIncidencia) {
         IncidenciaEntity incidencia = incidenciaRepository.findById(idIncidencia)
                 .orElseThrow(() -> new EntityNotFoundException("Incidencia no encontrada: " + idIncidencia));
+        UsuarioEntity usuario = incidencia.getUsuario();
         incidenciaRepository.delete(incidencia);
+        if (usuario != null) {
+            sincronizarPuntos(usuario);
+        }
+    }
+
+    // Los puntos siempre equivalen a las incidencias registradas por el usuario
+    public int sincronizarPuntos(UsuarioEntity usuario) {
+        int puntos = (int) incidenciaRepository.countByUsuario_NombreUsuario(usuario.getNombreUsuario())
+                * PUNTOS_POR_INCIDENCIA;
+        if (usuario.getPuntos() == null || usuario.getPuntos() != puntos) {
+            usuario.setPuntos(puntos);
+            usuarioRepository.save(usuario);
+        }
+        return puntos;
     }
 
     private SeguirIncidenciaResponseDTO aSeguirIncidenciaDTO(IncidenciaEntity incidencia) {
