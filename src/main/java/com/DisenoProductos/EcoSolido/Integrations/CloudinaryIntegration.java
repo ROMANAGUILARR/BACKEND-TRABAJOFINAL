@@ -11,7 +11,10 @@ import java.util.Map;
 public class CloudinaryIntegration {
     private final Cloudinary cloudinary;
     public CloudinaryIntegration(@Value("${cloudinary.url}") String cloudinaryURL) {
-        this.cloudinary =new Cloudinary(cloudinaryURL);
+        // Sin CLOUDINARY_URL la app arranca igual; solo fallaran las subidas de fotos
+        this.cloudinary = (cloudinaryURL == null || cloudinaryURL.isBlank())
+                ? new Cloudinary()
+                : new Cloudinary(cloudinaryURL);
     }
     public Map subir(MultipartFile archivo) throws IOException {
         return cloudinary.uploader().upload(
