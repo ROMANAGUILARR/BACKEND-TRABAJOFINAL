@@ -85,7 +85,7 @@ public class HuggingFaceIntegration {
                     )
             );
 
-            String geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + geminiApiKey;
+            String geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + geminiApiKey;
 
             Map response = webClient.post()
                     .uri(geminiUrl)
