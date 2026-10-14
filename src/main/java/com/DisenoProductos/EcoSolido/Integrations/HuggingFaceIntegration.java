@@ -25,7 +25,47 @@ public class HuggingFaceIntegration {
     @Value("${gemini.api.key:}")
     private String geminiApiKey;
 
-    private final WebClient webClient = WebClient.create();
+    @Value("${gemini.model:gemini-3.6-flash}")
+    private String geminiModel;
+
+    @Value("${gemini.fallback.model:gemini-3.1-flash-lite}")
+    private String geminiFallbackModel;
+
+    // Limite de 10MB para poder descargar fotos (el default de WebClient es 256KB)
+    private final WebClient webClient = WebClient.builder()
+            .codecs(c -> c.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
+            .build();
+
+    private String llamarGemini(String modelo, Map<String, Object> body) {
+        String geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + modelo + ":generateContent";
+
+        Map response = webClient.post()
+                .uri(geminiUrl)
+                .header("Content-Type", "application/json")
+                .header("x-goog-api-key", geminiApiKey)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .timeout(Duration.ofSeconds(60))
+                .block();
+
+        if (response == null) return null;
+        List<Map> candidates = (List<Map>) response.get("candidates");
+        if (candidates == null || candidates.isEmpty()) return null;
+        Map content = (Map) candidates.get(0).get("content");
+        if (content == null) return null;
+        List<Map> responseParts = (List<Map>) content.get("parts");
+        if (responseParts == null) return null;
+
+        // Unir solo las partes de texto de la respuesta (se ignoran los "thoughts")
+        StringBuilder texto = new StringBuilder();
+        for (Map parte : responseParts) {
+            if (Boolean.TRUE.equals(parte.get("thought"))) continue;
+            Object t = parte.get("text");
+            if (t != null) texto.append(t);
+        }
+        return texto.toString().trim();
+    }
 
     public Map<String, String> describirYTitrular(List<String> imagenes) {
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
@@ -61,9 +101,11 @@ public class HuggingFaceIntegration {
                 }
 
                 String mimeType = "image/jpeg";
-                if (entrada.contains("data:image/png")) {
+                if (entrada.startsWith("data:image/")) {
+                    mimeType = entrada.substring(5, entrada.indexOf(";"));
+                } else if (entrada.toLowerCase().contains(".png")) {
                     mimeType = "image/png";
-                } else if (entrada.contains("data:image/webp")) {
+                } else if (entrada.toLowerCase().contains(".webp")) {
                     mimeType = "image/webp";
                 }
 
@@ -80,26 +122,28 @@ public class HuggingFaceIntegration {
                             Map.of("parts", parts)
                     ),
                     "generationConfig", Map.of(
-                            "maxOutputTokens", 300,
-                            "temperature", 0.4
+                            // Margen amplio: los modelos Gemini 3 gastan tokens "pensando" antes de responder
+                            "maxOutputTokens", 1024,
+                            "temperature", 0.4,
+                            "thinkingConfig", Map.of("thinkingLevel", "low")
                     )
             );
 
-            String geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" + geminiApiKey;
-
-            Map response = webClient.post()
-                    .uri(geminiUrl)
-                    .header("Content-Type", "application/json")
-                    .bodyValue(body)
-                    .retrieve()
-                    .bodyToMono(Map.class)
-                    .timeout(Duration.ofSeconds(60))
-                    .block();
-
-            List<Map> candidates = (List<Map>) response.get("candidates");
-            Map content = (Map) candidates.get(0).get("content");
-            List<Map> responseParts = (List<Map>) content.get("parts");
-            String respuestaCompleta = (String) responseParts.get(0).get("text");
+            String respuestaCompleta = null;
+            Exception ultimoError = null;
+            for (String modelo : List.of(geminiModel, geminiFallbackModel)) {
+                if (modelo == null || modelo.isBlank()) continue;
+                try {
+                    respuestaCompleta = llamarGemini(modelo, body);
+                    if (respuestaCompleta != null && !respuestaCompleta.isBlank()) break;
+                } catch (Exception e) {
+                    ultimoError = e;
+                    System.err.println("Error Gemini (" + modelo + "): " + e.getMessage());
+                }
+            }
+            if (respuestaCompleta == null || respuestaCompleta.isBlank()) {
+                throw new IllegalStateException("La IA no devolvio texto", ultimoError);
+            }
 
             String titulo = "";
             String descripcion = respuestaCompleta;
