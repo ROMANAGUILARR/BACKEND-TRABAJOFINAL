@@ -6,7 +6,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
-
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -28,8 +27,9 @@ public class HuggingFaceIntegration {
     private String apiUrl;
 
     private final WebClient webClient = WebClient.create();
+
     @Cacheable(value="descripciones",key = "#imagenes.toString()")
-    public String describirFotos(List<String> imagenes) {
+    public Map<String, String> describirYTitrular(List<String> imagenes) {
         if (apiKey == null || apiKey.isBlank() || "dummy".equalsIgnoreCase(apiKey)) {
             throw new HuggingFaceException(
                     "HF_TOKEN no configurado. Agrega un token valido de Hugging Face en las variables de entorno.", null);
@@ -39,17 +39,14 @@ public class HuggingFaceIntegration {
 
             content.add(Map.of(
                     "type", "text",
-                    "text", "Describe estas imágenes en español en 2 oraciones como si fuera el reporte " +
-                            "de una incidencia urbana. Si las imágenes son demasiado borrosas, pixeleadas o no " +
-                            "puedes distinguir claramente su contenido, responde EXACTAMENTE con: " +
-                            "'Lo siento, no pude ver muy bien las fotos por lo cual no puedo describirlas. " +
-                            "¿Podrías volver a pasarlas o cambiar de fotos?'"
+                    "text", "Analiza estas imágenes de una incidencia ambiental urbana. " +
+                            "Responde EXACTAMENTE con este formato, sin texto adicional:\n" +
+                            "TITULO: <título corto de máximo 6 palabras>\n" +
+                            "DESCRIPCION: <descripción de 2 oraciones sobre lo que ves en la imagen>"
             ));
 
             for (String entrada : imagenes) {
-                if (entrada == null || entrada.isBlank()) {
-                    continue;
-                }
+                if (entrada == null || entrada.isBlank()) continue;
                 String dataUri;
                 if (entrada.startsWith("data:image/")) {
                     dataUri = entrada;
@@ -70,7 +67,7 @@ public class HuggingFaceIntegration {
             }
 
             Map<String, Object> body = Map.of(
-                    "model", "Qwen/Qwen2-VL-7B-Instruct",
+                    "model", "meta-llama/Llama-3.2-11B-Vision-Instruct",
                     "messages", List.of(
                             Map.of("role", "user", "content", content)
                     )
@@ -83,52 +80,36 @@ public class HuggingFaceIntegration {
                     .bodyValue(body)
                     .retrieve()
                     .bodyToMono(Map.class)
-                    .timeout(Duration.ofSeconds(60))    // ← timeout agregado
+                    .timeout(Duration.ofSeconds(60))
                     .block();
+
             List<Map> choices = (List<Map>) response.get("choices");
             Map message = (Map) choices.get(0).get("message");
-            return (String) message.get("content");
+            String respuestaCompleta = (String) message.get("content");
 
-        }  catch (Exception e) {
-            if (e instanceof org.springframework.web.reactive.function.client.WebClientResponseException wce) {
+            String titulo = "";
+            String descripcion = respuestaCompleta;
+
+            if (respuestaCompleta.contains("TITULO:") && respuestaCompleta.contains("DESCRIPCION:")) {
+                String[] partes = respuestaCompleta.split("DESCRIPCION:");
+                String tituloParte = partes[0];
+                titulo = tituloParte.replace("TITULO:", "").trim();
+                if (titulo.length() > 60) {
+                    titulo = titulo.substring(0, 60).trim();
+                }
+                descripcion = partes.length > 1 ? partes[1].trim() : respuestaCompleta;
+            }
+
+            return Map.of("descripcion", descripcion, "titulo", titulo);
+
+        } catch (Exception e) {
+            if (e instanceof WebClientResponseException wce) {
                 System.err.println("Error HF: " + wce.getResponseBodyAsString());
             }
-            throw new HuggingFaceException("No se pudo describir las fotos.", e);
+            throw new HuggingFaceException("No se pudieron describir las fotos.", e);
         }
     }
-    @Cacheable(value="titulos",key="#descripcion")
-    public String generarTitulo(String descripcion) {
-        try {
-            Map<String, Object> body = Map.of(
-                    "model", "meta-llama/Llama-3.1-8B-Instruct",
-                    "max_tokens",30,
-                    "messages", List.of(
-                            Map.of(
-                                    "role", "user",
-                                    "content", "Genera un título corto y descriptivo (máximo 6 palabras) " +
-                                            "en español para una incidencia urbana con esta descripción: \"" +
-                                            descripcion + "\". Responde SOLO con el título, sin comillas ni explicaciones."
-                            )
-                    )
-            );
 
-            Map response = webClient.post()
-                    .uri(apiUrl)
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
-                    .bodyValue(body)
-                    .retrieve()
-                    .bodyToMono(Map.class)
-                    .block();
-
-            List<Map> choices = (List<Map>) response.get("choices");
-            Map message = (Map) choices.get(0).get("message");
-            return (String) message.get("content");
-
-        }  catch (Exception e) {
-            throw new HuggingFaceException("No se pudo generar el título.", e);
-        }
-    }
     public List<String> generarRecomendaciones(GenerarRecomendacionesRequest request){
         String contextoExtra = (request.getContexto() != null && !request.getContexto().isBlank())
                 ? " Contexto adicional: " + request.getContexto() + "."
@@ -140,8 +121,8 @@ public class HuggingFaceIntegration {
                     "messages", List.of(
                             Map.of(
                                     "role", "user",
-                                    "content", "Genera exactamente 2 recomendaciones prácticas y diferentes " +
-                                            "para un ciudadano de Lima sobre cómo manejar correctamente residuos de tipo: '" +
+                                    "content", "Genera exactamente 2 recomendaciones practicas y diferentes " +
+                                            "para un ciudadano de Lima sobre como manejar correctamente residuos de tipo: '" +
                                             request.getTipoMaterial() + "'." + contextoExtra +
                                             " Responde SOLO con un JSON con este formato exacto, sin texto adicional: " +
                                             "{\"recomendaciones\": [\"recomendacion1\", \"recomendacion2\"]}"
@@ -159,12 +140,10 @@ public class HuggingFaceIntegration {
             List<Map> choices = (List<Map>) response.get("choices");
             Map message = (Map) choices.get(0).get("message");
             String contenido = (String) message.get("content");
-            // Limpiar backticks y markdown que el modelo agrega
             String jsonLimpio = contenido
                     .replaceAll("```json", "")
                     .replaceAll("```", "")
                     .trim();
-            // Extraer solo el JSON por si hay texto adicional
             int inicio = jsonLimpio.indexOf('{');
             int fin = jsonLimpio.lastIndexOf('}') + 1;
             if (inicio >= 0 && fin > inicio) {
