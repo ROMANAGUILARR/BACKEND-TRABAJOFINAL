@@ -196,7 +196,7 @@ public class HuggingFaceIntegration {
         }
         if (t.contains("inorg")) {
             return "residuos inorganicos aprovechables (reciclables): papel, carton, botellas PET, plasticos rigidos, " +
-                    "vidrio, latas y metales, tetrapak. En Peru van en el contenedor BLANCO segun la NTP 900.058:2019";
+                    "vidrio, latas y metales, tetrapak. En Peru van en el contenedor VERDE segun la NTP 900.058:2019";
         }
         if (t.contains("org")) {
             return "residuos organicos: restos de comida, cascaras de frutas y verduras, cafe, poda y hojas. " +
