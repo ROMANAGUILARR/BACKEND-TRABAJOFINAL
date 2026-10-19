@@ -5,11 +5,14 @@ import com.DisenoProductos.EcoSolido.Models.DTOs.*;
 import com.DisenoProductos.EcoSolido.Models.Entities.UsuarioEntity;
 import com.DisenoProductos.EcoSolido.Models.States.Rol;
 import com.DisenoProductos.EcoSolido.Repositories.IncidenciaRepository;
+import com.DisenoProductos.EcoSolido.Repositories.UsuarioInsigniaRepository;
 import com.DisenoProductos.EcoSolido.Repositories.UsuarioRepository;
 import com.DisenoProductos.EcoSolido.Security.JwtUtil;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
@@ -28,6 +31,8 @@ public class UsuarioService {
     private PasswordEncoder passwordEncoder;
     @Autowired
     private IncidenciaRepository incidenciaRepository;
+    @Autowired
+    private UsuarioInsigniaRepository usuarioInsigniaRepository;
 
     public UsuarioService(UsuarioRepository usuarioRepository, RENIECIntegration reniecIntegration) {
         this.usuarioRepository = usuarioRepository;
@@ -88,6 +93,45 @@ public class UsuarioService {
         return usuarioRepository.findAll().stream()
                 .map(this::aUsuarioListarDTO)
                 .collect(Collectors.toList());
+    }
+
+    /** Edita los datos de contacto de un usuario (nombre, apellido, teléfono y correo). */
+    @Transactional
+    public UsuarioListarDTO actualizarUsuario(Integer idUsuario, ActualizarUsuarioDTO dto) {
+        UsuarioEntity usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new EntityNotFoundException("No existe un usuario con id " + idUsuario));
+
+        usuarioRepository.findByCorreoElectronico(dto.getCorreoElectronico())
+                .filter(otro -> !otro.getIdUsuario().equals(idUsuario))
+                .ifPresent(otro -> { throw new ConflictoException("El correo electrónico ya está registrado"); });
+        usuarioRepository.findByTelefono(dto.getTelefono())
+                .filter(otro -> !otro.getIdUsuario().equals(idUsuario))
+                .ifPresent(otro -> { throw new ConflictoException("El teléfono ya está registrado"); });
+
+        usuario.setNombreCompleto(dto.getNombreCompleto().trim());
+        usuario.setApellidoCompleto(dto.getApellidoCompleto().trim());
+        usuario.setTelefono(dto.getTelefono());
+        usuario.setCorreoElectronico(dto.getCorreoElectronico().trim());
+        return aUsuarioListarDTO(usuarioRepository.save(usuario));
+    }
+
+    /**
+     * Elimina un usuario junto con sus insignias. No permite eliminar la propia cuenta
+     * ni usuarios que ya registraron incidencias, para no perder el historial ambiental.
+     */
+    @Transactional
+    public void eliminarUsuario(Integer idUsuario, String nombreUsuarioSolicitante) {
+        UsuarioEntity usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new EntityNotFoundException("No existe un usuario con id " + idUsuario));
+
+        if (usuario.getNombreUsuario().equals(nombreUsuarioSolicitante)) {
+            throw new ConflictoException("No puedes eliminar tu propia cuenta");
+        }
+        if (incidenciaRepository.countByUsuario_NombreUsuario(usuario.getNombreUsuario()) > 0) {
+            throw new ConflictoException("No se puede eliminar: el usuario tiene incidencias registradas");
+        }
+        usuarioInsigniaRepository.deleteByUsuario_IdUsuario(idUsuario);
+        usuarioRepository.delete(usuario);
     }
 
     private CrearUsuarioResponseDTO aCrearUsuarioResponse(UsuarioEntity usuario) {

@@ -5,6 +5,7 @@ import com.DisenoProductos.EcoSolido.Services.UsuarioService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -51,6 +52,18 @@ public class UsuarioController {
     @GetMapping("/listar")
     public ResponseEntity<List<UsuarioListarDTO>> listarUsuarios() {
         return ResponseEntity.ok(usuarioService.listarUsuarios());
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<UsuarioListarDTO> actualizarUsuario(@PathVariable Integer id,
+                                                              @Valid @RequestBody ActualizarUsuarioDTO dto) {
+        return ResponseEntity.ok(usuarioService.actualizarUsuario(id, dto));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminarUsuario(@PathVariable Integer id, Authentication authentication) {
+        usuarioService.eliminarUsuario(id, authentication.getName());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/verificar-cor-o-tel")

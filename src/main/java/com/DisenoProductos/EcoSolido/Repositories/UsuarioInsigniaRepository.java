@@ -14,4 +14,6 @@ public interface UsuarioInsigniaRepository extends JpaRepository<UsuarioInsignia
     List<UsuarioInsigniaEntity> findByUsuario_IdUsuario(@Param("idUsuario") Integer idUsuario);
 
     boolean existsByUsuario_IdUsuarioAndInsignia_IdInsignia(Integer idUsuario, Integer idInsignia);
+
+    void deleteByUsuario_IdUsuario(Integer idUsuario);
 }
