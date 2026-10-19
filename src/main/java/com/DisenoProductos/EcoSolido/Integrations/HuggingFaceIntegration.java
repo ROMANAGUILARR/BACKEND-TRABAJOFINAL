@@ -36,7 +36,7 @@ public class HuggingFaceIntegration {
     @Value("${gemini.fallback2.model:gemini-3.5-flash}")
     private String geminiFallbackModel2;
 
-    // Limite de 10MB para poder descargar fotos (el default de WebClient es 256KB)
+    // Límite de 10 MB para poder descargar fotos (el default de WebClient es 256KB)
     private final WebClient webClient = WebClient.builder()
             .codecs(c -> c.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
             .build();
@@ -52,7 +52,7 @@ public class HuggingFaceIntegration {
     private String llamarGemini(String modelo, Map<String, Object> body) {
         String geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + modelo + ":generateContent";
 
-        // Reintenta cuando Google esta saturado (503) o limita la cuota por minuto (429)
+        // Reintenta cuando Google está saturado (503) o limita la cuota por minuto (429)
         Map response = webClient.post()
                 .uri(geminiUrl)
                 .header("Content-Type", "application/json")
@@ -331,7 +331,7 @@ public class HuggingFaceIntegration {
                 System.err.println("Error Hugging Face recomendaciones: " + e.getMessage());
             }
         }
-        // Si ninguna IA responde, se entregan recomendaciones base de la categoria
+        // Si ninguna IA responde, se entregan recomendaciones base de la categoría
         System.err.println("IA no disponible para recomendaciones, se usan las recomendaciones base: "
                 + (error != null ? error.getMessage() : "sin GEMINI_API_KEY ni HF_TOKEN"));
         return recomendacionesBase(request.getTipoMaterial());
