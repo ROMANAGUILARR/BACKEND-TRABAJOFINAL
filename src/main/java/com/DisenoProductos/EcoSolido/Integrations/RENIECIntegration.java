@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Validacion de DNI con ApiPeru (apiperu.dev / apiperu.pe).
+ * Validación de DNI con ApiPeru (apiperu.dev / apiperu.pe).
  * El token va en la variable de entorno RENIEC_API_TOKEN.
  * Si no hay token o el servicio no responde, el registro no se bloquea.
  */
@@ -61,7 +61,7 @@ public class RENIECIntegration {
         return coincide;
     }
 
-    /** Devuelve el nombre completo segun RENIEC, o null si no se pudo consultar. */
+    /** Devuelve el nombre completo según RENIEC, o null si no se pudo consultar. */
     private String consultarNombre(String dni) {
         List<String> endpoints = new ArrayList<>();
         if (apiUrl != null && !apiUrl.isBlank()) endpoints.add(apiUrl);
