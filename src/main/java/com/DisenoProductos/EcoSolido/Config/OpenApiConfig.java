@@ -5,8 +5,11 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.tags.Tag;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
 
 /**
  * Documentación interactiva de la API (Swagger UI).
@@ -26,6 +29,11 @@ public class OpenApiConfig {
                         .version("1.0")
                         .description("Backend para registrar, seguir y gestionar incidencias ambientales. "
                                 + "Autenticación con JWT y roles CIUDADANO y ADMIN."))
+                .tags(List.of(
+                        new Tag().name("Autenticación")
+                                .description("Registro, inicio de sesión y recuperación de contraseña (rutas públicas)"),
+                        new Tag().name("Usuarios")
+                                .description("Gestión de usuarios (solo ADMIN)")))
                 .components(new Components()
                         .addSecuritySchemes(ESQUEMA_JWT, new SecurityScheme()
                                 .type(SecurityScheme.Type.HTTP)
