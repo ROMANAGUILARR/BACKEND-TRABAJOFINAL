@@ -1,5 +1,6 @@
 package com.DisenoProductos.EcoSolido.Controllers;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.DisenoProductos.EcoSolido.Models.DTOs.*;
 import com.DisenoProductos.EcoSolido.Services.UsuarioService;
 import jakarta.validation.Valid;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "Usuarios", description = "Registro, inicio de sesión, recuperación de contraseña y gestión de usuarios")
 @RestController
 @RequestMapping("/usuario")
 public class UsuarioController {
