@@ -1,5 +1,6 @@
 package com.DisenoProductos.EcoSolido.Controllers;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import com.DisenoProductos.EcoSolido.Models.DTOs.*;
 import com.DisenoProductos.EcoSolido.Models.Entities.UsuarioEntity;
@@ -27,34 +28,41 @@ public class IncidenciaController {
         this.incidenciaService = incidenciaService;
         this.usuarioService = usuarioService;
     }
+    @Operation(summary = "Lista las incidencias del usuario autenticado")
     @GetMapping("/seguir")
     public ResponseEntity<?> mostrarIncidencias(Authentication authentication) {
         String userName = authentication.getName();
         return ResponseEntity.ok(incidenciaService.mostrarIncidencias(userName));
     }
+    @Operation(summary = "Lista todas las incidencias (solo ADMIN)")
     @GetMapping("/mostrarT")
     public ResponseEntity<?> mostrarTodoIncidencias() {
         return ResponseEntity.ok(incidenciaService.mostrarIncidenciasTotales());
     }
+    @Operation(summary = "Lista las incidencias de un usuario (solo ADMIN)")
     @GetMapping("/usuario/{idUsuario}")
     public ResponseEntity<?> mostrarIncidenciasPorUsuario(@PathVariable Integer idUsuario) {
         return ResponseEntity.ok(incidenciaService.mostrarIncidenciasPorUsuario(idUsuario));
     }
+    @Operation(summary = "Cambia el estado de una incidencia (solo ADMIN)")
     @PatchMapping("/cambiarEstado/{idIncidencia}")
     public ResponseEntity<?> cambiarEstadoIncidencia(@PathVariable Integer idIncidencia, @RequestBody CambiarEstadoDTO body){
         return ResponseEntity.ok(incidenciaService.cambiarEstado(idIncidencia, body.getEstado()));
     }
+    @Operation(summary = "Actualiza los datos de una incidencia (solo ADMIN)")
     @PutMapping("/{idIncidencia}")
     public ResponseEntity<?> actualizarIncidencia(
             @PathVariable Integer idIncidencia,
             @Valid @RequestBody ActualizarIncidenciaDTO body) {
         return ResponseEntity.ok(incidenciaService.actualizarIncidencia(idIncidencia, body));
     }
+    @Operation(summary = "Elimina una incidencia (solo ADMIN)")
     @DeleteMapping("/{idIncidencia}")
     public ResponseEntity<?> eliminarIncidencia(@PathVariable Integer idIncidencia) {
         incidenciaService.eliminarIncidencia(idIncidencia);
         return ResponseEntity.noContent().build();
     }
+    @Operation(summary = "Registra una incidencia con fotos y ubicación")
     @PostMapping("/registrar")
     public ResponseEntity<?> logroRegistrarIncidencia(
             @RequestPart("incidencia") @Valid IncidenciaRequestDTO incidenciaDTO,
@@ -82,11 +90,13 @@ public class IncidenciaController {
                 "nuevasInsignias", nuevasInsigniasDTO
         ));
     }
+    @Operation(summary = "Muestra las métricas de incidencias del usuario")
     @GetMapping("/metricas")
     public ResponseEntity<?> mostrarMetricas(Authentication authentication){
         String userName=authentication.getName();
         return ResponseEntity.ok(incidenciaService.obtenerMetricas(userName));
     }
+    @Operation(summary = "Genera título y descripción con IA a partir de las fotos")
     @PostMapping("/generar-descripcion")
     public ResponseEntity<?> generarDescripcion(@RequestBody DescribirFotosRequestDTO request){
         if (request.getImagenes() == null || request.getImagenes().isEmpty()) {
@@ -104,6 +114,7 @@ public class IncidenciaController {
             return ResponseEntity.internalServerError().body("Error IA: " + errorMsg);
         }
     }
+    @Operation(summary = "Sube las fotos de una incidencia a Cloudinary")
     @PostMapping("/subir-fotos")
     public ResponseEntity<?> subirFotos(@RequestPart("fotos") List<MultipartFile> fotos) {
         if (fotos == null || fotos.isEmpty()) {
@@ -118,6 +129,7 @@ public class IncidenciaController {
                     .body("Error al subir las fotos.");
         }
     }
+    @Operation(summary = "Obtiene los puntos acumulados del usuario")
     @GetMapping("/puntos")
     public ResponseEntity<?> obtenerPuntos(Authentication authentication) {
         String nombreUsuario = authentication.getName();

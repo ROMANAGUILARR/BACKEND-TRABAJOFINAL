@@ -1,5 +1,6 @@
 package com.DisenoProductos.EcoSolido.Controllers;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import com.DisenoProductos.EcoSolido.Models.DTOs.InsigniaResponseDTO;
 import com.DisenoProductos.EcoSolido.Models.Entities.InsigniaEntity;
@@ -23,6 +24,7 @@ public class InsigniaController {
         this.insigniaService = insigniaService;
     }
 
+    @Operation(summary = "Lista las insignias del usuario autenticado")
     @GetMapping("/mis-insignias")
     public ResponseEntity<?> obtenerMisInsignias(Authentication authentication) {
         String nombreUsuario = authentication.getName();

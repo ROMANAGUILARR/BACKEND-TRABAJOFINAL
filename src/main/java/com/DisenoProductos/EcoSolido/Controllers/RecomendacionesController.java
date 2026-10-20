@@ -1,5 +1,6 @@
 package com.DisenoProductos.EcoSolido.Controllers;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import com.DisenoProductos.EcoSolido.Models.DTOs.GenerarRecomendacionesRequest;
 import com.DisenoProductos.EcoSolido.Models.DTOs.GenerarRecomendacionesResponse;
@@ -21,6 +22,7 @@ public class RecomendacionesController {
         this.recomendacionService = recomendacionService;
     }
 
+    @Operation(summary = "Genera recomendaciones de tratamiento de residuos con IA")
     @PostMapping("/recomendaciones")
     public ResponseEntity<?> generarRecomendaciones(@RequestBody GenerarRecomendacionesRequest request) {
         if (request.getTipoMaterial() == null || request.getTipoMaterial().isBlank()) {

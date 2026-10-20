@@ -1,6 +1,7 @@
 package com.DisenoProductos.EcoSolido.Controllers;
 
-import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import com.DisenoProductos.EcoSolido.Models.DTOs.*;
 import com.DisenoProductos.EcoSolido.Services.UsuarioService;
 import jakarta.validation.Valid;
@@ -12,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-@Tag(name = "Usuarios", description = "Registro, inicio de sesión, recuperación de contraseña y gestión de usuarios")
 @RestController
 @RequestMapping("/usuario")
 public class UsuarioController {
@@ -22,6 +22,8 @@ public class UsuarioController {
         this.usuarioService = usuarioService;
     }
 
+    @Operation(summary = "Registra un usuario validando su DNI", tags = "Autenticación")
+    @SecurityRequirements
     @PostMapping("/registrar")
     public ResponseEntity<?> registrarUsuario(@Valid @RequestBody CrearUsuarioRequestDTO usuarioRequestDTO) {
         try {
@@ -35,6 +37,8 @@ public class UsuarioController {
         }
     }
 
+    @Operation(summary = "Inicia sesión y devuelve el token JWT", tags = "Autenticación")
+    @SecurityRequirements
     @PostMapping("/autenticar")
     public ResponseEntity<?> autenticarUsuario(@Valid @RequestBody LoginRequestDTO requestDTO) {
         try {
@@ -51,23 +55,28 @@ public class UsuarioController {
         }
     }
 
+    @Operation(summary = "Lista los usuarios registrados (solo ADMIN)", tags = "Usuarios")
     @GetMapping("/listar")
     public ResponseEntity<List<UsuarioListarDTO>> listarUsuarios() {
         return ResponseEntity.ok(usuarioService.listarUsuarios());
     }
 
+    @Operation(summary = "Edita los datos de un usuario (solo ADMIN)", tags = "Usuarios")
     @PutMapping("/{id}")
     public ResponseEntity<UsuarioListarDTO> actualizarUsuario(@PathVariable Integer id,
                                                               @Valid @RequestBody ActualizarUsuarioDTO dto) {
         return ResponseEntity.ok(usuarioService.actualizarUsuario(id, dto));
     }
 
+    @Operation(summary = "Elimina un usuario (solo ADMIN)", tags = "Usuarios")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarUsuario(@PathVariable Integer id, Authentication authentication) {
         usuarioService.eliminarUsuario(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Verifica que el correo o teléfono esté registrado", tags = "Autenticación")
+    @SecurityRequirements
     @PostMapping("/verificar-cor-o-tel")
     public ResponseEntity<?> verificarCorrOTel(@RequestBody VerificarCorreoTelRequestDTO requestDTO) {
         VerificarCorreoTelResponseDTO response = usuarioService.verificarCorreoOTelefono(requestDTO);
@@ -78,6 +87,8 @@ public class UsuarioController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Obtiene la pregunta de seguridad del usuario", tags = "Autenticación")
+    @SecurityRequirements
     @GetMapping("/pregunta-seguridad")
     public ResponseEntity<?> preguntaSeguridad(
             @RequestParam(required = false) String correo,
@@ -94,6 +105,8 @@ public class UsuarioController {
         }
     }
 
+    @Operation(summary = "Valida la respuesta a la pregunta de seguridad", tags = "Autenticación")
+    @SecurityRequirements
     @PostMapping("/verificar-respuesta")
     public ResponseEntity<?> verificarRespuesta(@RequestBody RespuestaSeguridadRequestDTO requestDTO2){
         try {
@@ -107,6 +120,8 @@ public class UsuarioController {
         }
     }
 
+    @Operation(summary = "Restablece la contraseña del usuario", tags = "Autenticación")
+    @SecurityRequirements
     @PatchMapping("/restablecer-contrasena")
     public ResponseEntity<?> restablecerContrasena(@RequestBody RestablecerContrasenaRequestDTO requestDTO3) {
         try {
