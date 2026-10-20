@@ -1,5 +1,6 @@
 package com.DisenoProductos.EcoSolido.Controllers;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.DisenoProductos.EcoSolido.Models.DTOs.GenerarRecomendacionesRequest;
 import com.DisenoProductos.EcoSolido.Models.DTOs.GenerarRecomendacionesResponse;
 import com.DisenoProductos.EcoSolido.Services.RecomendacionService;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+@Tag(name = "Educación ambiental", description = "Recomendaciones para el tratamiento de residuos sólidos")
 @RestController
 @RequestMapping("/educacion")
 public class RecomendacionesController {
