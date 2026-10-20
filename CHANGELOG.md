@@ -6,6 +6,13 @@ Formato de versiones: MAJOR.MINOR.PATCH (versionado semántico).
 - MINOR: funcionalidades nuevas compatibles.
 - PATCH: correcciones de errores.
 
+## [1.0.1] - 2026-10-20
+
+### Cambiado
+- Swagger: cada endpoint muestra una descripción breve de lo que hace.
+- Swagger: nueva categoría «Autenticación» con registro, inicio de sesión y recuperación de contraseña.
+- Swagger: las rutas públicas ya no muestran el candado.
+
 ## [1.0.0] - 2026-10-19
 
 ### Añadido
