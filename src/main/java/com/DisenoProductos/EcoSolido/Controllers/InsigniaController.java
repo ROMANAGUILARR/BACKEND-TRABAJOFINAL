@@ -1,5 +1,6 @@
 package com.DisenoProductos.EcoSolido.Controllers;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.DisenoProductos.EcoSolido.Models.DTOs.InsigniaResponseDTO;
 import com.DisenoProductos.EcoSolido.Models.Entities.InsigniaEntity;
 import com.DisenoProductos.EcoSolido.Services.InsigniaService;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+@Tag(name = "Insignias", description = "Insignias y recompensas del ciudadano")
 @RestController
 @RequestMapping("/insignias")
 public class InsigniaController {
