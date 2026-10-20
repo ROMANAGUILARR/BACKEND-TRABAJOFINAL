@@ -11,7 +11,7 @@ import java.util.Map;
 public class CloudinaryIntegration {
     private final Cloudinary cloudinary;
     public CloudinaryIntegration(@Value("${cloudinary.url}") String cloudinaryURL) {
-        // Sin CLOUDINARY_URL la app arranca igual; solo fallaran las subidas de fotos
+        // Sin CLOUDINARY_URL la app arranca igual; solo fallarán las subidas de fotos
         this.cloudinary = (cloudinaryURL == null || cloudinaryURL.isBlank())
                 ? new Cloudinary()
                 : new Cloudinary(cloudinaryURL);
