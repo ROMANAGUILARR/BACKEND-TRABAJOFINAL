@@ -27,7 +27,9 @@ services:
       - key: CLOUDINARY_URL
         sync: false
 
-      # MySQL externo (Render NO incluye MySQL)
+      # PostgreSQL en Supabase (usar la cadena del "Session pooler")
+      # DB_URL = jdbc:postgresql://<host-pooler>:5432/postgres?sslmode=require
+      # DB_USER = postgres.<id-del-proyecto>
       - key: DB_URL
         sync: false
       - key: DB_USER
