@@ -3,7 +3,7 @@
 -- Coinciden EXACTAMENTE con InsigniaService.inicializarInsignias()
 -- =============================================================
 
-INSERT IGNORE INTO insignia (nombre, descripcion, icono, requisito_incidencias, recompensa) VALUES
+INSERT INTO insignia (nombre, descripcion, icono, requisito_incidencias, recompensa) VALUES
 ('Primer reporte',
  '¡Felicidades! Has registrado tu primera incidencia y comenzado a transformar tu comunidad.',
  '🌱', 1,
@@ -23,4 +23,5 @@ INSERT IGNORE INTO insignia (nombre, descripcion, icono, requisito_incidencias, 
 ('Embajador EcoSólido',
  'Has registrado 20 incidencias. Eres un embajador del cambio ambiental.',
  '🌍', 20,
- 'Vale de S/500 en canasta familiar + kit EcoSólido + certificado de Embajador Ambiental.');
+ 'Vale de S/500 en canasta familiar + kit EcoSólido + certificado de Embajador Ambiental.')
+ON CONFLICT (nombre) DO NOTHING;
