@@ -11,6 +11,7 @@ import com.DisenoProductos.EcoSolido.Repositories.CuadrillaRepository;
 import com.DisenoProductos.EcoSolido.Repositories.IncidenciaRepository;
 import com.DisenoProductos.EcoSolido.Repositories.TrabajadorRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +26,8 @@ public class CuadrillaService {
     private final CuadrillaRepository cuadrillaRepository;
     private final TrabajadorRepository trabajadorRepository;
     private final IncidenciaRepository incidenciaRepository;
+    @Value("${cuadrilla.max-incidencias-en-curso:3}")
+    private int maxIncidenciasEnCurso;
 
     public CuadrillaService(CuadrillaRepository cuadrillaRepository,
                             TrabajadorRepository trabajadorRepository,
@@ -163,7 +166,8 @@ public class CuadrillaService {
                 trabajadores,
                 carga.getOrDefault(IncidenciaEstados.PENDIENTE, 0L),
                 carga.getOrDefault(IncidenciaEstados.EN_PROCESO, 0L),
-                carga.getOrDefault(IncidenciaEstados.RESUELTO, 0L)
+                carga.getOrDefault(IncidenciaEstados.RESUELTO, 0L),
+                maxIncidenciasEnCurso
         );
     }
 
