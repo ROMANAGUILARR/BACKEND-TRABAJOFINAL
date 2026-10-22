@@ -212,6 +212,9 @@ public class IncidenciaService  {
         return aSeguirIncidenciaDTO(guardada);
     }
 
+    // Transaccional: el usuario (relacion LAZY) se lee y sus puntos se recalculan
+    // dentro de la misma sesion; sin esto falla con "could not initialize proxy - no session"
+    @Transactional
     public void eliminarIncidencia(Integer idIncidencia) {
         IncidenciaEntity incidencia = incidenciaRepository.findById(idIncidencia)
                 .orElseThrow(() -> new EntityNotFoundException("Incidencia no encontrada: " + idIncidencia));
