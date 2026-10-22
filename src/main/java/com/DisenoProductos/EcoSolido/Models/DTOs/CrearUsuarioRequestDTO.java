@@ -38,6 +38,7 @@ public class CrearUsuarioRequestDTO {
     private String preguntaSeguridad;
 
     @NotBlank(message = "La respuesta de seguridad es obligatoria")
+    @Size(max = 50, message = "La respuesta de seguridad debe tener como máximo 50 caracteres")
     private String respuestaPregunta;
 
     public String getNombreCompleto() {
