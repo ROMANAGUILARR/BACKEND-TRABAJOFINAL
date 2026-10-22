@@ -76,10 +76,3 @@ const historial = await obtenerHistorial(idIncidencia);
 
 Las tablas remotas son `cuadrilla`, `trabajador`, `incidencia_evidencia` e `incidencia_historial`. La API valida que el usuario autenticado sea ADMIN, que la cuadrilla esté activa y no tenga más de 3 incidencias en curso, y que la incidencia tenga cuadrilla asignada y evidencia antes de marcarse como resuelta. El historial registra cada cambio con su fecha y hora de Lima; el ciudadano lo ve en el seguimiento de su incidencia.
 
-## Ejecutar en local
-
-```bash
-./mvnw spring-boot:run
-```
-
-Por defecto se conecta a PostgreSQL en `localhost:5432`. Para usar la base de Supabase, define `DB_URL`, `DB_USER` y `DB_PASSWORD` antes de arrancar.
