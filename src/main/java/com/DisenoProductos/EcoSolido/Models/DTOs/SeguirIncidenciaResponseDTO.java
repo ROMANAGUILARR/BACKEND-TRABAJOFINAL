@@ -12,6 +12,49 @@ public class SeguirIncidenciaResponseDTO {
     private String direccionTexto;
     private String nombreUsuario;
     private String reportadoPor;
+    // Atención de la incidencia
+    private Integer idCuadrilla;
+    private String cuadrillaNombre;
+    private String cuadrillaZona;
+    private String fechaAsignacion;
+    private String fechaResolucion;
+    private List<String> urlsEvidencias;
+    public Integer getIdCuadrilla() {
+        return idCuadrilla;
+    }
+    public void setIdCuadrilla(Integer idCuadrilla) {
+        this.idCuadrilla = idCuadrilla;
+    }
+    public String getCuadrillaNombre() {
+        return cuadrillaNombre;
+    }
+    public void setCuadrillaNombre(String cuadrillaNombre) {
+        this.cuadrillaNombre = cuadrillaNombre;
+    }
+    public String getCuadrillaZona() {
+        return cuadrillaZona;
+    }
+    public void setCuadrillaZona(String cuadrillaZona) {
+        this.cuadrillaZona = cuadrillaZona;
+    }
+    public String getFechaAsignacion() {
+        return fechaAsignacion;
+    }
+    public void setFechaAsignacion(String fechaAsignacion) {
+        this.fechaAsignacion = fechaAsignacion;
+    }
+    public String getFechaResolucion() {
+        return fechaResolucion;
+    }
+    public void setFechaResolucion(String fechaResolucion) {
+        this.fechaResolucion = fechaResolucion;
+    }
+    public List<String> getUrlsEvidencias() {
+        return urlsEvidencias;
+    }
+    public void setUrlsEvidencias(List<String> urlsEvidencias) {
+        this.urlsEvidencias = urlsEvidencias;
+    }
     public String getNombreUsuario() {
         return nombreUsuario;
     }

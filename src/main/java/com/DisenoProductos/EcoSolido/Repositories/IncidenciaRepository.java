@@ -26,6 +26,13 @@ public interface IncidenciaRepository extends JpaRepository<IncidenciaEntity,Int
             "AND i.fecha >= :inicioMes")
     long countDesdeFecha(@Param("nombreUsuario") String nombreUsuario, @Param("inicioMes") LocalDateTime inicioMes);
 
+    // Carga de trabajo por cuadrilla: filas [idCuadrilla, estado, cantidad]
+    @Query("SELECT i.cuadrilla.idCuadrilla, i.estado, COUNT(i) FROM IncidenciaEntity i " +
+            "WHERE i.cuadrilla IS NOT NULL GROUP BY i.cuadrilla.idCuadrilla, i.estado")
+    List<Object[]> contarPorCuadrillaYEstado();
+
+    long countByCuadrilla_IdCuadrilla(Integer idCuadrilla);
+
     // HU011: Obtener las incidencias del mismo usuario, categoría y descripción para calcular su distancia (50m)
     List<IncidenciaEntity> findByUsuario_NombreUsuarioAndCategoriaAndDescripcion(
             String nombreUsuario, String categoria, String descripcion);

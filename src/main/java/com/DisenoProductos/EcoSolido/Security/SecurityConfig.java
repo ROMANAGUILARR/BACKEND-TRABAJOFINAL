@@ -60,6 +60,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/incidencias/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/incidencias/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/incidencias/cambiarEstado/**").hasRole("ADMIN")
+                        // Cuadrillas: asignación y resolución con evidencia
+                        .requestMatchers("/cuadrillas/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/incidencias/*/asignar").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/incidencias/*/resolver").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
