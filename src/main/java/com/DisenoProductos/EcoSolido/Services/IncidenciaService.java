@@ -3,15 +3,22 @@ package com.DisenoProductos.EcoSolido.Services;
 import com.DisenoProductos.EcoSolido.Integrations.CloudinaryIntegration;
 import com.DisenoProductos.EcoSolido.Integrations.HuggingFaceIntegration;
 import com.DisenoProductos.EcoSolido.Models.DTOs.ActualizarIncidenciaDTO;
+import com.DisenoProductos.EcoSolido.Models.DTOs.HistorialResponseDTO;
 import com.DisenoProductos.EcoSolido.Models.DTOs.IncidenciaRequestDTO;
 import com.DisenoProductos.EcoSolido.Models.DTOs.MetricasResponseDTO;
 import com.DisenoProductos.EcoSolido.Models.DTOs.SeguirIncidenciaResponseDTO;
+import com.DisenoProductos.EcoSolido.Models.Entities.CuadrillaEntity;
 import com.DisenoProductos.EcoSolido.Models.Entities.IncidenciaEntity;
+import com.DisenoProductos.EcoSolido.Models.Entities.IncidenciaEvidenciaEntity;
+import com.DisenoProductos.EcoSolido.Models.Entities.IncidenciaHistorialEntity;
 import com.DisenoProductos.EcoSolido.Models.Entities.IncidenciaFotoEntity;
 import com.DisenoProductos.EcoSolido.Models.Entities.InsigniaEntity;
 import com.DisenoProductos.EcoSolido.Models.Entities.UsuarioEntity;
 import com.DisenoProductos.EcoSolido.Models.States.IncidenciaEstados;
+import com.DisenoProductos.EcoSolido.Repositories.CuadrillaRepository;
+import com.DisenoProductos.EcoSolido.Repositories.IncidenciaHistorialRepository;
 import com.DisenoProductos.EcoSolido.Repositories.IncidenciaRepository;
+import org.springframework.security.access.AccessDeniedException;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -39,14 +46,20 @@ public class IncidenciaService  {
     public UsuarioRepository usuarioRepository;
     @Autowired
     public InsigniaService insigniaService;
+    private final CuadrillaRepository cuadrillaRepository;
+    private final IncidenciaHistorialRepository historialRepository;
     private static final int PUNTOS_POR_INCIDENCIA = 10;
+    private static final int MAX_FOTOS_EVIDENCIA = 5;
 
-    public IncidenciaService(IncidenciaRepository incidenciaRepository, CloudinaryIntegration cloudinaryIntegration, HuggingFaceIntegration huggingFaceIntegration, UsuarioRepository usuarioRepository, InsigniaService insigniaService) {
+    public IncidenciaService(IncidenciaRepository incidenciaRepository, CloudinaryIntegration cloudinaryIntegration, HuggingFaceIntegration huggingFaceIntegration, UsuarioRepository usuarioRepository, InsigniaService insigniaService,
+                             CuadrillaRepository cuadrillaRepository, IncidenciaHistorialRepository historialRepository) {
         this.incidenciaRepository = incidenciaRepository;
         this.cloudinaryIntegration = cloudinaryIntegration;
         this.huggingFaceIntegration = huggingFaceIntegration;
         this.usuarioRepository = usuarioRepository;
         this.insigniaService = insigniaService;
+        this.cuadrillaRepository = cuadrillaRepository;
+        this.historialRepository = historialRepository;
     }
 
     public int getPuntosPorIncidencia() {
@@ -179,21 +192,21 @@ public class IncidenciaService  {
     }
 
     @Transactional
-    public SeguirIncidenciaResponseDTO cambiarEstado(Integer idIncidencia, IncidenciaEstados estado){
+    public SeguirIncidenciaResponseDTO cambiarEstado(Integer idIncidencia, IncidenciaEstados estado, String realizadoPor){
         IncidenciaEntity incidencia = incidenciaRepository.findById(idIncidencia)
                 .orElseThrow(() -> new EntityNotFoundException("Incidencia no encontrada: " + idIncidencia));
 
         if (estado == null) {
             throw new IllegalArgumentException("Debe indicar el nuevo estado de la incidencia");
         }
-        incidencia.setEstado(estado);
+        aplicarCambioEstado(incidencia, estado, null, realizadoPor);
 
         IncidenciaEntity guardada = incidenciaRepository.save(incidencia);
         return aSeguirIncidenciaDTO(guardada);
     }
 
     @Transactional
-    public SeguirIncidenciaResponseDTO actualizarIncidencia(Integer idIncidencia, ActualizarIncidenciaDTO dto) {
+    public SeguirIncidenciaResponseDTO actualizarIncidencia(Integer idIncidencia, ActualizarIncidenciaDTO dto, String realizadoPor) {
         IncidenciaEntity incidencia = incidenciaRepository.findById(idIncidencia)
                 .orElseThrow(() -> new EntityNotFoundException("Incidencia no encontrada: " + idIncidencia));
 
@@ -205,11 +218,155 @@ public class IncidenciaService  {
         incidencia.setLatitud(dto.getLatitud());
         incidencia.setLongitud(dto.getLongitud());
         if (dto.getEstado() != null) {
-            incidencia.setEstado(dto.getEstado());
+            aplicarCambioEstado(incidencia, dto.getEstado(), null, realizadoPor);
         }
 
         IncidenciaEntity guardada = incidenciaRepository.save(incidencia);
         return aSeguirIncidenciaDTO(guardada);
+    }
+
+    // ---------- Atención por cuadrillas ----------
+
+    /** Asigna (o quita, con idCuadrilla = null) la cuadrilla responsable. Si estaba PENDIENTE pasa a EN_PROCESO. */
+    @Transactional
+    public SeguirIncidenciaResponseDTO asignarCuadrilla(Integer idIncidencia, Integer idCuadrilla, String realizadoPor) {
+        IncidenciaEntity incidencia = incidenciaRepository.findById(idIncidencia)
+                .orElseThrow(() -> new EntityNotFoundException("Incidencia no encontrada: " + idIncidencia));
+        CuadrillaEntity anterior = incidencia.getCuadrilla();
+
+        if (idCuadrilla == null) {
+            if (anterior == null) {
+                return aSeguirIncidenciaDTO(incidencia);
+            }
+            incidencia.setCuadrilla(null);
+            incidencia.setFechaAsignacion(null);
+            registrarHistorial(incidencia, IncidenciaHistorialEntity.TIPO_ASIGNACION, null, null,
+                    "Se quitó la asignación a la cuadrilla " + anterior.getNombre(), realizadoPor);
+            return aSeguirIncidenciaDTO(incidenciaRepository.save(incidencia));
+        }
+
+        CuadrillaEntity cuadrilla = cuadrillaRepository.findById(idCuadrilla)
+                .orElseThrow(() -> new EntityNotFoundException("Cuadrilla no encontrada: " + idCuadrilla));
+        if (!Boolean.TRUE.equals(cuadrilla.getActiva())) {
+            throw new IllegalArgumentException("La cuadrilla \"" + cuadrilla.getNombre() + "\" está desactivada y no puede recibir incidencias.");
+        }
+        if (anterior != null && anterior.getIdCuadrilla().equals(cuadrilla.getIdCuadrilla())) {
+            return aSeguirIncidenciaDTO(incidencia);
+        }
+        if (incidencia.getEstado() == IncidenciaEstados.RESUELTO) {
+            throw new IllegalArgumentException("La incidencia ya está resuelta; no se puede reasignar.");
+        }
+
+        incidencia.setCuadrilla(cuadrilla);
+        incidencia.setFechaAsignacion(LocalDateTime.now());
+        String detalle = (anterior == null ? "Asignada a la cuadrilla " : "Reasignada de " + anterior.getNombre() + " a la cuadrilla ")
+                + cuadrilla.getNombre() + (cuadrilla.getZona() != null ? " (" + cuadrilla.getZona() + ")" : "");
+        registrarHistorial(incidencia, IncidenciaHistorialEntity.TIPO_ASIGNACION, null, null, detalle, realizadoPor);
+
+        if (incidencia.getEstado() == IncidenciaEstados.PENDIENTE) {
+            aplicarCambioEstado(incidencia, IncidenciaEstados.EN_PROCESO, "La cuadrilla se encarga de la atención", realizadoPor);
+        }
+        return aSeguirIncidenciaDTO(incidenciaRepository.save(incidencia));
+    }
+
+    /** Marca la incidencia como RESUELTA adjuntando fotos del trabajo terminado. */
+    @Transactional
+    public SeguirIncidenciaResponseDTO resolverConEvidencia(Integer idIncidencia, List<MultipartFile> fotos,
+                                                           String comentario, String realizadoPor) throws IOException {
+        IncidenciaEntity incidencia = incidenciaRepository.findById(idIncidencia)
+                .orElseThrow(() -> new EntityNotFoundException("Incidencia no encontrada: " + idIncidencia));
+        List<MultipartFile> archivos = fotos == null ? List.of()
+                : fotos.stream().filter(f -> f != null && !f.isEmpty()).toList();
+
+        if (incidencia.getEstado() == IncidenciaEstados.RESUELTO) {
+            throw new IllegalArgumentException("La incidencia ya está resuelta.");
+        }
+        if (incidencia.getCuadrilla() == null) {
+            throw new IllegalArgumentException("Asigna una cuadrilla antes de marcar la incidencia como resuelta.");
+        }
+        if (archivos.isEmpty()) {
+            throw new IllegalArgumentException("Adjunta al menos una foto de evidencia del trabajo terminado.");
+        }
+        if (archivos.size() > MAX_FOTOS_EVIDENCIA) {
+            throw new IllegalArgumentException("Puedes adjuntar como máximo " + MAX_FOTOS_EVIDENCIA + " fotos de evidencia.");
+        }
+        for (MultipartFile archivo : archivos) {
+            String tipo = archivo.getContentType();
+            if (tipo == null || !tipo.startsWith("image/")) {
+                throw new IllegalArgumentException("Las evidencias deben ser imágenes.");
+            }
+        }
+
+        for (MultipartFile archivo : archivos) {
+            Map resultado = cloudinaryIntegration.subir(archivo);
+            IncidenciaEvidenciaEntity evidencia = new IncidenciaEvidenciaEntity();
+            evidencia.setIncidencia(incidencia);
+            evidencia.setUrlFoto((String) resultado.get("secure_url"));
+            evidencia.setPublicId((String) resultado.get("public_id"));
+            incidencia.getEvidencias().add(evidencia);
+        }
+        registrarHistorial(incidencia, IncidenciaHistorialEntity.TIPO_EVIDENCIA, null, null,
+                archivos.size() == 1 ? "Se adjuntó 1 foto de evidencia" : "Se adjuntaron " + archivos.size() + " fotos de evidencia",
+                realizadoPor);
+
+        String nota = comentario == null || comentario.isBlank() ? null : comentario.trim();
+        if (nota != null && nota.length() > 500) {
+            nota = nota.substring(0, 500);
+        }
+        aplicarCambioEstado(incidencia, IncidenciaEstados.RESUELTO, nota, realizadoPor);
+        return aSeguirIncidenciaDTO(incidenciaRepository.save(incidencia));
+    }
+
+    /** Historial de una incidencia: lo ve el ADMIN o el ciudadano que la registró. */
+    @Transactional(readOnly = true)
+    public List<HistorialResponseDTO> obtenerHistorial(Integer idIncidencia, String nombreUsuario, boolean esAdmin) {
+        IncidenciaEntity incidencia = incidenciaRepository.findById(idIncidencia)
+                .orElseThrow(() -> new EntityNotFoundException("Incidencia no encontrada: " + idIncidencia));
+        if (!esAdmin) {
+            UsuarioEntity dueno = incidencia.getUsuario();
+            if (dueno == null || !dueno.getNombreUsuario().equals(nombreUsuario)) {
+                throw new AccessDeniedException("No puedes ver el historial de esta incidencia");
+            }
+        }
+        return historialRepository.findByIncidencia_IdIncidenciaOrderByFechaAscIdHistorialAsc(idIncidencia).stream()
+                .map(h -> new HistorialResponseDTO(
+                        h.getTipo(),
+                        h.getEstadoAnterior(),
+                        h.getEstadoNuevo(),
+                        h.getDetalle(),
+                        esAdmin ? h.getRealizadoPor() : (h.getRealizadoPor() != null ? "Municipalidad" : null),
+                        h.getFecha() != null ? h.getFecha().toString() : null))
+                .toList();
+    }
+
+    /**
+     * Cambia el estado dejando constancia en el historial.
+     * Para pasar a RESUELTO hace falta al menos una foto de evidencia (opción "Resolver").
+     */
+    private void aplicarCambioEstado(IncidenciaEntity incidencia, IncidenciaEstados nuevo, String detalle, String realizadoPor) {
+        IncidenciaEstados anterior = incidencia.getEstado();
+        if (nuevo == anterior) {
+            return;
+        }
+        if (nuevo == IncidenciaEstados.RESUELTO && incidencia.getEvidencias().isEmpty()) {
+            throw new IllegalArgumentException("Para marcar la incidencia como resuelta usa la opción \"Resolver\" y adjunta una foto de evidencia.");
+        }
+        incidencia.setEstado(nuevo);
+        incidencia.setFechaResolucion(nuevo == IncidenciaEstados.RESUELTO ? LocalDateTime.now() : null);
+        registrarHistorial(incidencia, IncidenciaHistorialEntity.TIPO_ESTADO,
+                anterior != null ? anterior.name() : null, nuevo.name(), detalle, realizadoPor);
+    }
+
+    private void registrarHistorial(IncidenciaEntity incidencia, String tipo, String estadoAnterior,
+                                    String estadoNuevo, String detalle, String realizadoPor) {
+        IncidenciaHistorialEntity h = new IncidenciaHistorialEntity();
+        h.setIncidencia(incidencia);
+        h.setTipo(tipo);
+        h.setEstadoAnterior(estadoAnterior);
+        h.setEstadoNuevo(estadoNuevo);
+        h.setDetalle(detalle);
+        h.setRealizadoPor(realizadoPor);
+        historialRepository.save(h);
     }
 
     // Transaccional: el usuario (relacion LAZY) se lee y sus puntos se recalculan
@@ -250,6 +407,20 @@ public class IncidenciaService  {
                         .collect(Collectors.toList())
         );
         dto.setDireccionTexto(incidencia.getDireccionTexto());
+        CuadrillaEntity cuadrilla = incidencia.getCuadrilla();
+        if (cuadrilla != null) {
+            dto.setIdCuadrilla(cuadrilla.getIdCuadrilla());
+            dto.setCuadrillaNombre(cuadrilla.getNombre());
+            dto.setCuadrillaZona(cuadrilla.getZona());
+        }
+        dto.setFechaAsignacion(incidencia.getFechaAsignacion() != null ? incidencia.getFechaAsignacion().toString() : null);
+        dto.setFechaResolucion(incidencia.getFechaResolucion() != null ? incidencia.getFechaResolucion().toString() : null);
+        dto.setUrlsEvidencias(
+                incidencia.getEvidencias() == null ? List.of() :
+                incidencia.getEvidencias().stream()
+                        .map(e -> normalizarUrlCloudinary(e.getUrlFoto()))
+                        .collect(Collectors.toList())
+        );
         UsuarioEntity usuario = incidencia.getUsuario();
         if (usuario != null) {
             dto.setNombreUsuario(usuario.getNombreUsuario());
