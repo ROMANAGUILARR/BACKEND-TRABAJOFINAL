@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -58,7 +59,8 @@ public class UsuarioService {
         usuario.setTelefono(usuarioRequestDTO.getTelefono());
         usuario.setCorreoElectronico(usuarioRequestDTO.getCorreoElectronico());
         usuario.setPreguntaSeguridad(usuarioRequestDTO.getPreguntaSeguridad());
-        usuario.setRespuestaPregunta(usuarioRequestDTO.getRespuestaPregunta().trim().toLowerCase());
+        // La respuesta de seguridad se guarda cifrada con BCrypt (igual que la contraseña)
+        usuario.setRespuestaPregunta(passwordEncoder.encode(normalizarRespuesta(usuarioRequestDTO.getRespuestaPregunta())));
         usuario.setRol(Rol.CIUDADANO);
         if (!reniecIntegration.validarDni(usuario.getDni(),
                 usuario.getNombreCompleto(),
@@ -227,9 +229,29 @@ public class UsuarioService {
         return response;
     }
 
+    // Minusculas y sin espacios al inicio/fin: "Candy", "candy" y " CANDY " valen igual
+    private static String normalizarRespuesta(String respuesta) {
+        return respuesta.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean esHashBCrypt(String valor) {
+        return valor.startsWith("$2a$") || valor.startsWith("$2b$") || valor.startsWith("$2y$");
+    }
+
     private boolean respuestaCorrecta(UsuarioEntity usuario, String respuesta) {
-        return respuesta != null
-                && usuario.getRespuestaPregunta() != null
-                && usuario.getRespuestaPregunta().trim().equalsIgnoreCase(respuesta.trim());
+        String guardada = usuario.getRespuestaPregunta();
+        if (respuesta == null || guardada == null) {
+            return false;
+        }
+        if (esHashBCrypt(guardada)) {
+            String normalizada = normalizarRespuesta(respuesta);
+            // BCrypt solo admite hasta 72 bytes; una respuesta mas larga nunca es correcta
+            if (normalizada.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+                return false;
+            }
+            return passwordEncoder.matches(normalizada, guardada);
+        }
+        // Respuestas antiguas aun sin cifrar (la migracion V9 las cifra todas)
+        return guardada.trim().equalsIgnoreCase(respuesta.trim());
     }
 }
