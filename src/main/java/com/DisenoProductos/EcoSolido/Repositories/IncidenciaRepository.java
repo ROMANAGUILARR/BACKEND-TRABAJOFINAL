@@ -32,6 +32,8 @@ public interface IncidenciaRepository extends JpaRepository<IncidenciaEntity,Int
     List<Object[]> contarPorCuadrillaYEstado();
 
     long countByCuadrilla_IdCuadrilla(Integer idCuadrilla);
+    // Incidencias en curso de una cuadrilla (todas menos las resueltas)
+    long countByCuadrilla_IdCuadrillaAndEstadoNot(Integer idCuadrilla, IncidenciaEstados estado);
 
     // HU011: Obtener las incidencias del mismo usuario, categoría y descripción para calcular su distancia (50m)
     List<IncidenciaEntity> findByUsuario_NombreUsuarioAndCategoriaAndDescripcion(

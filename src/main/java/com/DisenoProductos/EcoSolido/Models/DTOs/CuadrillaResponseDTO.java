@@ -11,5 +11,6 @@ public record CuadrillaResponseDTO(
         List<TrabajadorResponseDTO> trabajadores,
         long pendientes,
         long enProceso,
-        long resueltas
+        long resueltas,
+        int limiteEnCurso
 ) {}

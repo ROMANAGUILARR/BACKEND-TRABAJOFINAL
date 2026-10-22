@@ -26,6 +26,7 @@ import java.util.Map;
 import com.DisenoProductos.EcoSolido.Repositories.UsuarioRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -50,6 +51,9 @@ public class IncidenciaService  {
     private final IncidenciaHistorialRepository historialRepository;
     private static final int PUNTOS_POR_INCIDENCIA = 10;
     private static final int MAX_FOTOS_EVIDENCIA = 5;
+    // Una cuadrilla no puede tener más de este número de incidencias en curso a la vez
+    @Value("${cuadrilla.max-incidencias-en-curso:3}")
+    private int maxIncidenciasEnCurso;
 
     public IncidenciaService(IncidenciaRepository incidenciaRepository, CloudinaryIntegration cloudinaryIntegration, HuggingFaceIntegration huggingFaceIntegration, UsuarioRepository usuarioRepository, InsigniaService insigniaService,
                              CuadrillaRepository cuadrillaRepository, IncidenciaHistorialRepository historialRepository) {
@@ -255,6 +259,13 @@ public class IncidenciaService  {
         }
         if (incidencia.getEstado() == IncidenciaEstados.RESUELTO) {
             throw new IllegalArgumentException("La incidencia ya está resuelta; no se puede reasignar.");
+        }
+        long enCurso = incidenciaRepository.countByCuadrilla_IdCuadrillaAndEstadoNot(
+                cuadrilla.getIdCuadrilla(), IncidenciaEstados.RESUELTO);
+        if (enCurso >= maxIncidenciasEnCurso) {
+            throw new ConflictoException("La cuadrilla \"" + cuadrilla.getNombre() + "\" está ocupada: ya tiene "
+                    + enCurso + " incidencias en curso (máximo " + maxIncidenciasEnCurso
+                    + "). Resuelve alguna o elige otra cuadrilla.");
         }
 
         incidencia.setCuadrilla(cuadrilla);
