@@ -1,6 +1,7 @@
 package com.DisenoProductos.EcoSolido.Security;
 
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -14,6 +15,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.http.HttpMethod;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 
@@ -22,6 +25,9 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    // Frontends adicionales permitidos (p. ej. el despliegue en Vercel), sin tocar código
+    @Value("${cors.origenes-extra:}")
+    private String origenesExtra;
 
     public SecurityConfig(JwtFilter jwtFilter) {
         this.jwtFilter = jwtFilter;
@@ -70,12 +76,20 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
+        // Orígenes fijos + los que se agreguen en la variable CORS_ORIGENES_EXTRA
+        // (separados por comas; admite comodines, p. ej. https://mi-app-*.vercel.app)
+        List<String> origenes = new ArrayList<>(List.of(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
                 "https://ecosolido-frontend.onrender.com",
                 "https://frontend-trabajofinal.onrender.com"
         ));
+        Arrays.stream(origenesExtra.split(","))
+                .map(String::trim)
+                .filter(o -> !o.isEmpty())
+                .map(o -> o.endsWith("/") ? o.substring(0, o.length() - 1) : o)
+                .forEach(origenes::add);
+        config.setAllowedOriginPatterns(origenes);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
