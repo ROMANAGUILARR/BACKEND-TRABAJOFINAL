@@ -50,10 +50,18 @@ public class UsuarioService {
         if (usuarioRepository.existsByTelefono(usuarioRequestDTO.getTelefono())) {
             throw new RuntimeException("El teléfono ya está registrado");
         }
+        String tipoDocumento = usuarioRequestDTO.getTipoDocumento() == null || usuarioRequestDTO.getTipoDocumento().isBlank()
+                ? "DNI" : usuarioRequestDTO.getTipoDocumento();
+        String numeroDocumento = usuarioRequestDTO.getDni().trim().toUpperCase(java.util.Locale.ROOT);
+        validarFormatoDocumento(tipoDocumento, numeroDocumento);
+        if (usuarioRepository.existsByTipoDocumentoAndDni(tipoDocumento, numeroDocumento)) {
+            throw new RuntimeException("Ya existe un usuario registrado con ese documento");
+        }
         UsuarioEntity usuario = new UsuarioEntity();
         usuario.setNombreCompleto(usuarioRequestDTO.getNombreCompleto());
         usuario.setApellidoCompleto(usuarioRequestDTO.getApellidoCompleto());
-        usuario.setDni(usuarioRequestDTO.getDni());
+        usuario.setTipoDocumento(tipoDocumento);
+        usuario.setDni(numeroDocumento);
         usuario.setNombreUsuario(usuarioRequestDTO.getNombreUsuario());
         usuario.setContrasena(passwordEncoder.encode(usuarioRequestDTO.getContrasena()));
         usuario.setTelefono(usuarioRequestDTO.getTelefono());
@@ -62,13 +70,35 @@ public class UsuarioService {
         // La respuesta de seguridad se guarda cifrada con BCrypt (igual que la contraseña)
         usuario.setRespuestaPregunta(passwordEncoder.encode(normalizarRespuesta(usuarioRequestDTO.getRespuestaPregunta())));
         usuario.setRol(Rol.CIUDADANO);
-        if (!reniecIntegration.validarDni(usuario.getDni(),
+        // RENIEC solo registra DNI; los demás documentos se validan por formato
+        if ("DNI".equals(tipoDocumento) && !reniecIntegration.validarDni(usuario.getDni(),
                 usuario.getNombreCompleto(),
                 usuario.getApellidoCompleto())) {
             throw new RuntimeException("El DNI no coincide con los nombres y apellidos registrados en RENIEC");
         }
         UsuarioEntity guardado = usuarioRepository.save(usuario);
         return aCrearUsuarioResponse(guardado);
+    }
+
+    /** Formato de cada documento de identidad aceptado en Perú. */
+    private void validarFormatoDocumento(String tipo, String numero) {
+        boolean valido = switch (tipo) {
+            case "DNI" -> numero.matches("\\d{8}");
+            case "CE" -> numero.matches("[A-Z0-9]{8,12}");
+            case "PASAPORTE" -> numero.matches("[A-Z0-9]{6,12}");
+            case "PTP" -> numero.matches("\\d{9}");
+            default -> false;
+        };
+        if (!valido) {
+            String formato = switch (tipo) {
+                case "DNI" -> "El DNI debe tener exactamente 8 dígitos";
+                case "CE" -> "El carné de extranjería debe tener entre 8 y 12 letras o dígitos";
+                case "PASAPORTE" -> "El pasaporte debe tener entre 6 y 12 letras o dígitos";
+                case "PTP" -> "El PTP debe tener exactamente 9 dígitos";
+                default -> "El tipo de documento no es válido";
+            };
+            throw new IllegalArgumentException(formato);
+        }
     }
 
     private LoginRequestDTO loginRequest(String nombreUsuario,String contrasena){
@@ -153,6 +183,7 @@ public class UsuarioService {
         dto.setIdUsuario(usuario.getIdUsuario());
         dto.setNombreCompleto(usuario.getNombreCompleto());
         dto.setApellidoCompleto(usuario.getApellidoCompleto());
+        dto.setTipoDocumento(usuario.getTipoDocumento());
         dto.setDni(usuario.getDni());
         dto.setTelefono(usuario.getTelefono());
         dto.setCorreoElectronico(usuario.getCorreoElectronico());

@@ -8,10 +8,12 @@ import com.DisenoProductos.EcoSolido.Models.States.IncidenciaEstados;
 import com.DisenoProductos.EcoSolido.Services.IncidenciaService;
 import com.DisenoProductos.EcoSolido.Services.UsuarioService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,13 @@ public class IncidenciaController {
     @GetMapping("/mostrarT")
     public ResponseEntity<?> mostrarTodoIncidencias() {
         return ResponseEntity.ok(incidenciaService.mostrarIncidenciasTotales());
+    }
+    @Operation(summary = "Reporte de incidencias registradas entre dos fechas, con resueltas y motivo de las no resueltas (solo ADMIN)")
+    @GetMapping("/reporte")
+    public ResponseEntity<?> reportePorFechas(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return ResponseEntity.ok(incidenciaService.reportePorFechas(desde, hasta));
     }
     @Operation(summary = "Lista las incidencias de un usuario (solo ADMIN)")
     @GetMapping("/usuario/{idUsuario}")

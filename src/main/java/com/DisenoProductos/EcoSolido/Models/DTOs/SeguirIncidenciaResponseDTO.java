@@ -81,6 +81,14 @@ public class SeguirIncidenciaResponseDTO {
         this.direccionTexto = direccionTexto;
     }
     private List<String> urlsImagenes;
+    // Solo en el reporte por fechas: por qué la incidencia aún no se resuelve
+    private String motivoNoResuelta;
+    public String getMotivoNoResuelta() {
+        return motivoNoResuelta;
+    }
+    public void setMotivoNoResuelta(String motivoNoResuelta) {
+        this.motivoNoResuelta = motivoNoResuelta;
+    }
     public String getTitulo() {
         return titulo;
     }
