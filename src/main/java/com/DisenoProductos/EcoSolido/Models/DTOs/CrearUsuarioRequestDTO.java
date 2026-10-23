@@ -14,8 +14,13 @@ public class CrearUsuarioRequestDTO {
     @Size(min = 2, max = 100, message = "El apellido debe tener entre 2 y 100 caracteres")
     private String apellidoCompleto;
 
-    @NotBlank(message = "El DNI es obligatorio")
-    @Pattern(regexp = "\\d{8}", message = "El DNI debe tener exactamente 8 dígitos")
+    // DNI, CE (carné de extranjería), PASAPORTE o PTP. Si no se envía, se asume DNI.
+    @Pattern(regexp = "DNI|CE|PASAPORTE|PTP", message = "El tipo de documento no es válido")
+    private String tipoDocumento;
+
+    // El formato exacto se valida según el tipo de documento en UsuarioService
+    @NotBlank(message = "El número de documento es obligatorio")
+    @Pattern(regexp = "[A-Za-z0-9]{6,12}", message = "El número de documento debe tener entre 6 y 12 letras o dígitos")
     private String dni;
 
     @NotBlank(message = "El teléfono es obligatorio")
@@ -52,6 +57,12 @@ public class CrearUsuarioRequestDTO {
     }
     public void setApellidoCompleto(String apellidoCompleto) {
         this.apellidoCompleto = apellidoCompleto;
+    }
+    public String getTipoDocumento() {
+        return tipoDocumento;
+    }
+    public void setTipoDocumento(String tipoDocumento) {
+        this.tipoDocumento = tipoDocumento;
     }
     public String getDni() {
         return dni;

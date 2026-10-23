@@ -6,6 +6,7 @@ import com.DisenoProductos.EcoSolido.Models.DTOs.ActualizarIncidenciaDTO;
 import com.DisenoProductos.EcoSolido.Models.DTOs.HistorialResponseDTO;
 import com.DisenoProductos.EcoSolido.Models.DTOs.IncidenciaRequestDTO;
 import com.DisenoProductos.EcoSolido.Models.DTOs.MetricasResponseDTO;
+import com.DisenoProductos.EcoSolido.Models.DTOs.ReporteIncidenciasDTO;
 import com.DisenoProductos.EcoSolido.Models.DTOs.SeguirIncidenciaResponseDTO;
 import com.DisenoProductos.EcoSolido.Models.Entities.CuadrillaEntity;
 import com.DisenoProductos.EcoSolido.Models.Entities.IncidenciaEntity;
@@ -20,6 +21,7 @@ import com.DisenoProductos.EcoSolido.Repositories.IncidenciaHistorialRepository;
 import com.DisenoProductos.EcoSolido.Repositories.IncidenciaRepository;
 import org.springframework.security.access.AccessDeniedException;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -85,6 +87,89 @@ public class IncidenciaService  {
         return R * c;
     }
 
+    // Radio en metros dentro del cual dos reportes de la misma categoría se consideran el mismo punto
+    private static final double RADIO_DUPLICADO_METROS = 50.0;
+
+    /**
+     * Evita que varios vecinos registren el mismo problema: si otro usuario ya reportó
+     * la misma categoría a 50 m o menos y aún no se resuelve, el reporte se rechaza.
+     */
+    private void verificarReportadaPorOtroVecino(IncidenciaRequestDTO dto, UsuarioEntity usuario) {
+        if (dto.getLatitud() == null || dto.getLongitud() == null || dto.getCategoria() == null) {
+            return;
+        }
+        for (IncidenciaEntity abierta : incidenciaRepository.findAbiertasPorCategoria(dto.getCategoria(), IncidenciaEstados.RESUELTO)) {
+            if (abierta.getLatitud() == null || abierta.getLongitud() == null) continue;
+            if (abierta.getUsuario() != null && abierta.getUsuario().getIdUsuario().equals(usuario.getIdUsuario())) continue;
+            double distancia = calcularDistancia(abierta.getLatitud(), abierta.getLongitud(), dto.getLatitud(), dto.getLongitud());
+            if (distancia <= RADIO_DUPLICADO_METROS) {
+                String estado = abierta.getEstado() == IncidenciaEstados.EN_PROCESO ? "en proceso" : "pendiente";
+                throw new DuplicateIncidentException(String.format(
+                        "Otro vecino ya reportó este problema a %d m de aquí (incidencia #%d, %s). " +
+                        "La municipalidad ya lo tiene registrado, por eso no se creó un reporte nuevo.",
+                        Math.round(distancia), abierta.getIdIncidencia(), estado));
+            }
+        }
+    }
+
+    /**
+     * Incidencias registradas entre dos fechas (ambas incluidas), con totales
+     * y el motivo de las que todavía no se resuelven.
+     */
+    @Transactional(readOnly = true)
+    public ReporteIncidenciasDTO reportePorFechas(LocalDate desde, LocalDate hasta) {
+        if (desde == null || hasta == null) {
+            throw new IllegalArgumentException("Debe indicar la fecha de inicio y la fecha de fin");
+        }
+        if (desde.isAfter(hasta)) {
+            throw new IllegalArgumentException("La fecha de inicio no puede ser posterior a la fecha de fin");
+        }
+        List<IncidenciaEntity> incidencias = incidenciaRepository.findRegistradasEntre(
+                desde.atStartOfDay(), hasta.plusDays(1).atStartOfDay());
+
+        LocalDateTime ahora = LocalDateTime.now();
+        List<SeguirIncidenciaResponseDTO> detalle = new ArrayList<>();
+        Map<String, long[]> porUsuario = new java.util.LinkedHashMap<>();
+        long resueltas = 0, enProceso = 0, pendientes = 0;
+
+        for (IncidenciaEntity i : incidencias) {
+            SeguirIncidenciaResponseDTO dto = aSeguirIncidenciaDTO(i);
+            boolean resuelta = i.getEstado() == IncidenciaEstados.RESUELTO;
+            if (resuelta) resueltas++;
+            else if (i.getEstado() == IncidenciaEstados.EN_PROCESO) enProceso++;
+            else pendientes++;
+            if (!resuelta) dto.setMotivoNoResuelta(motivoNoResuelta(i, ahora));
+            detalle.add(dto);
+
+            String usuario = dto.getReportadoPor() != null ? dto.getReportadoPor() : "Sin usuario";
+            long[] cuenta = porUsuario.computeIfAbsent(usuario, k -> new long[2]);
+            cuenta[0]++;
+            if (resuelta) cuenta[1]++;
+        }
+
+        List<ReporteIncidenciasDTO.ResumenPorUsuario> resumen = porUsuario.entrySet().stream()
+                .map(e -> new ReporteIncidenciasDTO.ResumenPorUsuario(e.getKey(), e.getValue()[0], e.getValue()[1],
+                        e.getValue()[0] - e.getValue()[1]))
+                .sorted((a, b) -> Long.compare(b.reportadas(), a.reportadas()))
+                .collect(Collectors.toList());
+
+        long total = incidencias.size();
+        double porcentaje = total == 0 ? 0 : Math.round(resueltas * 1000.0 / total) / 10.0;
+        return new ReporteIncidenciasDTO(desde.toString(), hasta.toString(), total, resueltas, enProceso,
+                pendientes, porcentaje, resumen, detalle);
+    }
+
+    private String motivoNoResuelta(IncidenciaEntity i, LocalDateTime ahora) {
+        if (i.getCuadrilla() == null) {
+            long dias = i.getFecha() == null ? 0 : java.time.Duration.between(i.getFecha(), ahora).toDays();
+            return "Pendiente: aún no se asigna una cuadrilla (" + dias + (dias == 1 ? " día" : " días") + " desde el registro)";
+        }
+        LocalDateTime desde = i.getFechaAsignacion() != null ? i.getFechaAsignacion() : i.getFecha();
+        long dias = desde == null ? 0 : java.time.Duration.between(desde, ahora).toDays();
+        return "En proceso: la cuadrilla " + i.getCuadrilla().getNombre() + " la atiende hace " + dias
+                + (dias == 1 ? " día" : " días") + "; falta subir la foto de evidencia";
+    }
+
     @Transactional
     public List<InsigniaEntity> registrarIncidencia(IncidenciaRequestDTO incidenciaDTO,
                                                       List<MultipartFile> fotos,
@@ -109,6 +194,7 @@ public class IncidenciaService  {
                 throw new DuplicateIncidentException("Esta incidencia ya fue registrada anteriormente. No se asignaran puntos adicionales.");
             }
         }
+        verificarReportadaPorOtroVecino(incidenciaDTO, usuario);
 
         IncidenciaEntity incidencia = new IncidenciaEntity();
         incidencia.setDescripcion(incidenciaDTO.getDescripcion());

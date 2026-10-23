@@ -35,6 +35,17 @@ public interface IncidenciaRepository extends JpaRepository<IncidenciaEntity,Int
     // Incidencias en curso de una cuadrilla (todas menos las resueltas)
     long countByCuadrilla_IdCuadrillaAndEstadoNot(Integer idCuadrilla, IncidenciaEstados estado);
 
+    // Reporte por rango de fechas: incidencias registradas desde 'desde' (incluido) hasta 'hasta' (excluido)
+    @Query("SELECT DISTINCT i FROM IncidenciaEntity i LEFT JOIN FETCH i.fotos LEFT JOIN FETCH i.usuario " +
+            "WHERE i.fecha >= :desde AND i.fecha < :hasta ORDER BY i.fecha DESC")
+    List<IncidenciaEntity> findRegistradasEntre(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
+
+    // Posibles duplicados reportados por cualquier vecino: misma categoría y aún sin resolver
+    @Query("SELECT i FROM IncidenciaEntity i LEFT JOIN FETCH i.usuario " +
+            "WHERE i.categoria = :categoria AND i.estado <> :resuelto")
+    List<IncidenciaEntity> findAbiertasPorCategoria(@Param("categoria") String categoria,
+                                                    @Param("resuelto") IncidenciaEstados resuelto);
+
     // HU011: Obtener las incidencias del mismo usuario, categoría y descripción para calcular su distancia (50m)
     List<IncidenciaEntity> findByUsuario_NombreUsuarioAndCategoriaAndDescripcion(
             String nombreUsuario, String categoria, String descripcion);
