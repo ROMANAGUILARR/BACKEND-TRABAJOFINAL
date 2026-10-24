@@ -34,7 +34,7 @@ Backend oficial de **EcoSolido**, una plataforma web para que los ciudadanos rep
 | Estado del servicio | https://backend-trabajofinal.onrender.com/api/health |
 | Repositorio del frontend | https://github.com/ROMANAGUILARR/FRONTEND-TRABAJOFINAL |
 | Repositorio del backend | https://github.com/ROMANAGUILARR/BACKEND-TRABAJOFINAL |
-| Tablero Jira | https://utp-team-drieg0fg.atlassian.net/jira/software/projects/SCRUM/boards |
+| Tablero Jira | https://utp-team-drieg0fg.atlassian.net/jira/software/projects/SCRUM/boards/1 |
 
 ---
 
