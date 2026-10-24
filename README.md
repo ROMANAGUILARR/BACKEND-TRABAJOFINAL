@@ -50,6 +50,10 @@ El inicio de sesión se hace en el frontend con el **nombre de usuario** y la co
 
 El tablero de Jira se abre con cualquier correo **@utp.edu.pe**.
 
+### Presentación del proyecto
+
+[Descargar la presentación (PowerPoint)](https://github.com/ROMANAGUILARR/BACKEND-TRABAJOFINAL/raw/main/docs/EcoSolido-Presentacion.pptx)
+
 ---
 
 ## 🚀 Funcionalidades del backend
