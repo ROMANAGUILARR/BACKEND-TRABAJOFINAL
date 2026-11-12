@@ -153,6 +153,16 @@ public class IncidenciaController {
             return ResponseEntity.badRequest()
                     .body("Debe adjuntar al menos una foto.");
         }
+        if (fotos.size() > 5) {
+            return ResponseEntity.badRequest()
+                    .body("Puedes subir como máximo 5 fotos.");
+        }
+        boolean todasSonImagenes = fotos.stream()
+                .allMatch(f -> f.getContentType() != null && f.getContentType().startsWith("image/"));
+        if (!todasSonImagenes) {
+            return ResponseEntity.badRequest()
+                    .body("Solo se permiten archivos de imagen.");
+        }
         try {
             List<String> urls = incidenciaService.subirFotos(fotos);
             return ResponseEntity.ok(Map.of("urls", urls));

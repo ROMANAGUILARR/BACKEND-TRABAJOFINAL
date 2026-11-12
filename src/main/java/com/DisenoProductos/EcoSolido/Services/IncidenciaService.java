@@ -180,6 +180,10 @@ public class IncidenciaService  {
         if (!tieneUrls && !tieneArchivos) {
             throw new IllegalStateException("Debe adjuntar al menos 1 foto");
         }
+        int totalFotos = (tieneUrls ? urlsFotos.size() : 0) + (tieneArchivos ? fotos.size() : 0);
+        if (totalFotos > MAX_FOTOS_EVIDENCIA) {
+            throw new IllegalArgumentException("Puedes adjuntar como máximo " + MAX_FOTOS_EVIDENCIA + " fotos por incidencia.");
+        }
         UsuarioEntity usuario = usuarioRepository.findByNombreUsuario(nombreUsuario)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
