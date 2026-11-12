@@ -251,8 +251,9 @@ public class UsuarioService {
         if (!respuestaCorrecta(usuario, requestDTO.getRespuesta())) {
             throw new RuntimeException("La respuesta de seguridad es incorrecta");
         }
-        if (requestDTO.getNuevaContrasena() == null || requestDTO.getNuevaContrasena().length() < 6) {
-            throw new RuntimeException("La contraseña debe tener al menos 6 caracteres");
+        if (requestDTO.getNuevaContrasena() == null || requestDTO.getNuevaContrasena().length() < 6
+                || requestDTO.getNuevaContrasena().length() > 72) {
+            throw new RuntimeException("La contraseña debe tener entre 6 y 72 caracteres");
         }
         usuario.setContrasena(passwordEncoder.encode(requestDTO.getNuevaContrasena()));
         usuarioRepository.save(usuario);

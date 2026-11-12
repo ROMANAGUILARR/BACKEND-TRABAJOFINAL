@@ -1,6 +1,8 @@
 package com.DisenoProductos.EcoSolido.Models.DTOs;
 
 import com.DisenoProductos.EcoSolido.Models.States.IncidenciaEstados;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -9,12 +11,17 @@ public class ActualizarIncidenciaDTO {
     private String titulo;
 
     @NotBlank(message = "La descripción no puede estar vacía")
+    @Size(max = 800, message = "La descripción no puede superar los 800 caracteres")
     private String descripcion;
 
     @NotBlank(message = "La categoría no puede estar vacía")
     private String categoria;
 
+    @DecimalMin(value = "-90.0", message = "La latitud no es válida")
+    @DecimalMax(value = "90.0", message = "La latitud no es válida")
     private Double latitud;
+    @DecimalMin(value = "-180.0", message = "La longitud no es válida")
+    @DecimalMax(value = "180.0", message = "La longitud no es válida")
     private Double longitud;
 
     @NotBlank(message = "La dirección no puede estar vacía")

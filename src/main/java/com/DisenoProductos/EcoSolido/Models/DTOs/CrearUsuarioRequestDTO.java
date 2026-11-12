@@ -8,10 +8,12 @@ import jakarta.validation.constraints.Size;
 public class CrearUsuarioRequestDTO {
     @NotBlank(message = "El nombre completo es obligatorio")
     @Size(min = 2, max = 100, message = "El nombre debe tener entre 2 y 100 caracteres")
+    @Pattern(regexp = "[\\p{L}' -]+", message = "El nombre solo puede contener letras y espacios")
     private String nombreCompleto;
 
     @NotBlank(message = "El apellido completo es obligatorio")
     @Size(min = 2, max = 100, message = "El apellido debe tener entre 2 y 100 caracteres")
+    @Pattern(regexp = "[\\p{L}' -]+", message = "El apellido solo puede contener letras y espacios")
     private String apellidoCompleto;
 
     // DNI, CE (carné de extranjería), PASAPORTE o PTP. Si no se envía, se asume DNI.
@@ -28,15 +30,16 @@ public class CrearUsuarioRequestDTO {
     private String telefono;
 
     @NotBlank(message = "El correo electrónico es obligatorio")
-    @Email(message = "El correo electrónico no tiene un formato válido")
+    @Email(regexp = "[^@\\s]+@[^@\\s]+\\.[^@\\s]+", message = "El correo electrónico no tiene un formato válido")
     private String correoElectronico;
 
     @NotBlank(message = "El nombre de usuario es obligatorio")
     @Size(min = 3, max = 50, message = "El nombre de usuario debe tener entre 3 y 50 caracteres")
+    @Pattern(regexp = "[A-Za-z0-9._-]+", message = "El nombre de usuario solo puede tener letras, números, punto, guion o guion bajo (sin espacios)")
     private String nombreUsuario;
 
     @NotBlank(message = "La contraseña es obligatoria")
-    @Size(min = 6, max = 72, message = "La contraseña debe tener al menos 6 caracteres")
+    @Size(min = 6, max = 72, message = "La contraseña debe tener entre 6 y 72 caracteres")
     private String contrasena;
 
     @NotBlank(message = "La pregunta de seguridad es obligatoria")
