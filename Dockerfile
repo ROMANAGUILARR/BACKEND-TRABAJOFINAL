@@ -17,9 +17,11 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
+# TZ / user.timezone: las fechas (incidencias, historial) se guardan en hora de Lima, no en UTC
 ENV PORT=8080 \
     SPRING_PROFILES_ACTIVE=prod \
-    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k -XX:+ExitOnOutOfMemoryError"
+    TZ=America/Lima \
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Lima"
 
 # Capas del jar ordenadas de menos a mas cambiantes para aprovechar la cache
 COPY --from=builder /app/extracted/dependencies/ ./

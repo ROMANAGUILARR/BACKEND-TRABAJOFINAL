@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -49,24 +50,55 @@ public class UsuarioService {
         if (usuarioRepository.existsByTelefono(usuarioRequestDTO.getTelefono())) {
             throw new RuntimeException("El teléfono ya está registrado");
         }
+        String tipoDocumento = usuarioRequestDTO.getTipoDocumento() == null || usuarioRequestDTO.getTipoDocumento().isBlank()
+                ? "DNI" : usuarioRequestDTO.getTipoDocumento();
+        String numeroDocumento = usuarioRequestDTO.getDni().trim().toUpperCase(java.util.Locale.ROOT);
+        validarFormatoDocumento(tipoDocumento, numeroDocumento);
+        if (usuarioRepository.existsByTipoDocumentoAndDni(tipoDocumento, numeroDocumento)) {
+            throw new RuntimeException("Ya existe un usuario registrado con ese documento");
+        }
         UsuarioEntity usuario = new UsuarioEntity();
         usuario.setNombreCompleto(usuarioRequestDTO.getNombreCompleto());
         usuario.setApellidoCompleto(usuarioRequestDTO.getApellidoCompleto());
-        usuario.setDni(usuarioRequestDTO.getDni());
+        usuario.setTipoDocumento(tipoDocumento);
+        usuario.setDni(numeroDocumento);
         usuario.setNombreUsuario(usuarioRequestDTO.getNombreUsuario());
         usuario.setContrasena(passwordEncoder.encode(usuarioRequestDTO.getContrasena()));
         usuario.setTelefono(usuarioRequestDTO.getTelefono());
         usuario.setCorreoElectronico(usuarioRequestDTO.getCorreoElectronico());
         usuario.setPreguntaSeguridad(usuarioRequestDTO.getPreguntaSeguridad());
-        usuario.setRespuestaPregunta(usuarioRequestDTO.getRespuestaPregunta().trim().toLowerCase());
+        // La respuesta de seguridad se guarda cifrada con BCrypt (igual que la contraseña)
+        usuario.setRespuestaPregunta(passwordEncoder.encode(normalizarRespuesta(usuarioRequestDTO.getRespuestaPregunta())));
         usuario.setRol(Rol.CIUDADANO);
-        if (!reniecIntegration.validarDni(usuario.getDni(),
+        // RENIEC solo registra DNI; los demás documentos se validan por formato
+        if ("DNI".equals(tipoDocumento) && !reniecIntegration.validarDni(usuario.getDni(),
                 usuario.getNombreCompleto(),
                 usuario.getApellidoCompleto())) {
             throw new RuntimeException("El DNI no coincide con los nombres y apellidos registrados en RENIEC");
         }
         UsuarioEntity guardado = usuarioRepository.save(usuario);
         return aCrearUsuarioResponse(guardado);
+    }
+
+    /** Formato de cada documento de identidad aceptado en Perú. */
+    private void validarFormatoDocumento(String tipo, String numero) {
+        boolean valido = switch (tipo) {
+            case "DNI" -> numero.matches("\\d{8}");
+            case "CE" -> numero.matches("[A-Z0-9]{8,12}");
+            case "PASAPORTE" -> numero.matches("[A-Z0-9]{6,12}");
+            case "PTP" -> numero.matches("\\d{9}");
+            default -> false;
+        };
+        if (!valido) {
+            String formato = switch (tipo) {
+                case "DNI" -> "El DNI debe tener exactamente 8 dígitos";
+                case "CE" -> "El carné de extranjería debe tener entre 8 y 12 letras o dígitos";
+                case "PASAPORTE" -> "El pasaporte debe tener entre 6 y 12 letras o dígitos";
+                case "PTP" -> "El PTP debe tener exactamente 9 dígitos";
+                default -> "El tipo de documento no es válido";
+            };
+            throw new IllegalArgumentException(formato);
+        }
     }
 
     private LoginRequestDTO loginRequest(String nombreUsuario,String contrasena){
@@ -151,6 +183,7 @@ public class UsuarioService {
         dto.setIdUsuario(usuario.getIdUsuario());
         dto.setNombreCompleto(usuario.getNombreCompleto());
         dto.setApellidoCompleto(usuario.getApellidoCompleto());
+        dto.setTipoDocumento(usuario.getTipoDocumento());
         dto.setDni(usuario.getDni());
         dto.setTelefono(usuario.getTelefono());
         dto.setCorreoElectronico(usuario.getCorreoElectronico());
@@ -227,9 +260,29 @@ public class UsuarioService {
         return response;
     }
 
+    // Minusculas y sin espacios al inicio/fin: "Candy", "candy" y " CANDY " valen igual
+    private static String normalizarRespuesta(String respuesta) {
+        return respuesta.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean esHashBCrypt(String valor) {
+        return valor.startsWith("$2a$") || valor.startsWith("$2b$") || valor.startsWith("$2y$");
+    }
+
     private boolean respuestaCorrecta(UsuarioEntity usuario, String respuesta) {
-        return respuesta != null
-                && usuario.getRespuestaPregunta() != null
-                && usuario.getRespuestaPregunta().trim().equalsIgnoreCase(respuesta.trim());
+        String guardada = usuario.getRespuestaPregunta();
+        if (respuesta == null || guardada == null) {
+            return false;
+        }
+        if (esHashBCrypt(guardada)) {
+            String normalizada = normalizarRespuesta(respuesta);
+            // BCrypt solo admite hasta 72 bytes; una respuesta mas larga nunca es correcta
+            if (normalizada.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+                return false;
+            }
+            return passwordEncoder.matches(normalizada, guardada);
+        }
+        // Respuestas antiguas aun sin cifrar (la migracion V9 las cifra todas)
+        return guardada.trim().equalsIgnoreCase(respuesta.trim());
     }
 }

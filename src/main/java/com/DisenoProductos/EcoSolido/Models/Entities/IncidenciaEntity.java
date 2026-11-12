@@ -38,6 +38,18 @@ public class IncidenciaEntity {
     private Double longitud;
     @Column(name="direccion_texto")
     private String direccionTexto;
+    // Cuadrilla responsable de atender la incidencia (null = sin asignar)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="id_cuadrilla")
+    private CuadrillaEntity cuadrilla;
+    @Column(name="fecha_asignacion")
+    private LocalDateTime fechaAsignacion;
+    @Column(name="fecha_resolucion")
+    private LocalDateTime fechaResolucion;
+    // Fotos del trabajo terminado (se suben al resolver)
+    @OneToMany(mappedBy="incidencia", cascade=CascadeType.ALL, orphanRemoval=true, fetch = FetchType.LAZY)
+    @OrderBy("fecha ASC")
+    private List<IncidenciaEvidenciaEntity> evidencias = new java.util.ArrayList<>();
     public Integer getIdIncidencia() {
         return idIncidencia;
     }
@@ -103,5 +115,29 @@ public class IncidenciaEntity {
     }
     public void setDireccionTexto(String direccionTexto) {
         this.direccionTexto = direccionTexto;
+    }
+    public CuadrillaEntity getCuadrilla() {
+        return cuadrilla;
+    }
+    public void setCuadrilla(CuadrillaEntity cuadrilla) {
+        this.cuadrilla = cuadrilla;
+    }
+    public LocalDateTime getFechaAsignacion() {
+        return fechaAsignacion;
+    }
+    public void setFechaAsignacion(LocalDateTime fechaAsignacion) {
+        this.fechaAsignacion = fechaAsignacion;
+    }
+    public LocalDateTime getFechaResolucion() {
+        return fechaResolucion;
+    }
+    public void setFechaResolucion(LocalDateTime fechaResolucion) {
+        this.fechaResolucion = fechaResolucion;
+    }
+    public List<IncidenciaEvidenciaEntity> getEvidencias() {
+        return evidencias;
+    }
+    public void setEvidencias(List<IncidenciaEvidenciaEntity> evidencias) {
+        this.evidencias = evidencias;
     }
 }

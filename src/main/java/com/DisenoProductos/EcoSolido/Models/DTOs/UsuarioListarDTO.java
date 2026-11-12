@@ -22,6 +22,9 @@ public class UsuarioListarDTO {
     public void setNombreCompleto(String nombreCompleto) { this.nombreCompleto = nombreCompleto; }
     public String getApellidoCompleto() { return apellidoCompleto; }
     public void setApellidoCompleto(String apellidoCompleto) { this.apellidoCompleto = apellidoCompleto; }
+    private String tipoDocumento;
+    public String getTipoDocumento() { return tipoDocumento; }
+    public void setTipoDocumento(String tipoDocumento) { this.tipoDocumento = tipoDocumento; }
     public String getDni() { return dni; }
     public void setDni(String dni) { this.dni = dni; }
     public String getTelefono() { return telefono; }

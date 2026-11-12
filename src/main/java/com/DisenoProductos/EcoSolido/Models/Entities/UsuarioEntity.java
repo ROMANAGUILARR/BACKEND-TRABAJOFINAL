@@ -14,6 +14,9 @@ public class UsuarioEntity {
     private String nombreCompleto;
     @Column(name = "apellido_completo")
     private String apellidoCompleto;
+    @Column(name = "tipo_documento", nullable = false)
+    private String tipoDocumento = "DNI";
+    // Número del documento de identidad (DNI, carné de extranjería, pasaporte o PTP)
     private String dni;
     private String telefono;
     @Column(name="correo_electronico")
@@ -54,6 +57,12 @@ public class UsuarioEntity {
     }
     public void setApellidoCompleto(String apellidoCompleto) {
         this.apellidoCompleto = apellidoCompleto;
+    }
+    public String getTipoDocumento() {
+        return tipoDocumento;
+    }
+    public void setTipoDocumento(String tipoDocumento) {
+        this.tipoDocumento = tipoDocumento;
     }
     public String getDni() {
         return dni;

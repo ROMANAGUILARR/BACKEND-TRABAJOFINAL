@@ -8,10 +8,12 @@ import com.DisenoProductos.EcoSolido.Models.States.IncidenciaEstados;
 import com.DisenoProductos.EcoSolido.Services.IncidenciaService;
 import com.DisenoProductos.EcoSolido.Services.UsuarioService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +41,13 @@ public class IncidenciaController {
     public ResponseEntity<?> mostrarTodoIncidencias() {
         return ResponseEntity.ok(incidenciaService.mostrarIncidenciasTotales());
     }
+    @Operation(summary = "Reporte de incidencias registradas entre dos fechas, con resueltas y motivo de las no resueltas (solo ADMIN)")
+    @GetMapping("/reporte")
+    public ResponseEntity<?> reportePorFechas(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return ResponseEntity.ok(incidenciaService.reportePorFechas(desde, hasta));
+    }
     @Operation(summary = "Lista las incidencias de un usuario (solo ADMIN)")
     @GetMapping("/usuario/{idUsuario}")
     public ResponseEntity<?> mostrarIncidenciasPorUsuario(@PathVariable Integer idUsuario) {
@@ -46,15 +55,38 @@ public class IncidenciaController {
     }
     @Operation(summary = "Cambia el estado de una incidencia (solo ADMIN)")
     @PatchMapping("/cambiarEstado/{idIncidencia}")
-    public ResponseEntity<?> cambiarEstadoIncidencia(@PathVariable Integer idIncidencia, @RequestBody CambiarEstadoDTO body){
-        return ResponseEntity.ok(incidenciaService.cambiarEstado(idIncidencia, body.getEstado()));
+    public ResponseEntity<?> cambiarEstadoIncidencia(@PathVariable Integer idIncidencia, @RequestBody CambiarEstadoDTO body,
+                                                     Authentication authentication){
+        return ResponseEntity.ok(incidenciaService.cambiarEstado(idIncidencia, body.getEstado(), authentication.getName()));
+    }
+    @Operation(summary = "Asigna o quita la cuadrilla responsable de una incidencia (solo ADMIN)")
+    @PatchMapping("/{idIncidencia}/asignar")
+    public ResponseEntity<?> asignarCuadrilla(@PathVariable Integer idIncidencia, @RequestBody AsignarCuadrillaDTO body,
+                                              Authentication authentication) {
+        return ResponseEntity.ok(incidenciaService.asignarCuadrilla(idIncidencia, body.idCuadrilla(), authentication.getName()));
+    }
+    @Operation(summary = "Marca la incidencia como resuelta con fotos de evidencia (solo ADMIN)")
+    @PostMapping(value = "/{idIncidencia}/resolver", consumes = "multipart/form-data")
+    public ResponseEntity<?> resolverIncidencia(@PathVariable Integer idIncidencia,
+                                                @RequestPart(value = "fotos", required = false) List<MultipartFile> fotos,
+                                                @RequestParam(value = "comentario", required = false) String comentario,
+                                                Authentication authentication) throws Exception {
+        return ResponseEntity.ok(incidenciaService.resolverConEvidencia(idIncidencia, fotos, comentario, authentication.getName()));
+    }
+    @Operation(summary = "Historial de cambios de una incidencia (ADMIN o el ciudadano que la registró)")
+    @GetMapping("/{idIncidencia}/historial")
+    public ResponseEntity<?> historialIncidencia(@PathVariable Integer idIncidencia, Authentication authentication) {
+        boolean esAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        return ResponseEntity.ok(incidenciaService.obtenerHistorial(idIncidencia, authentication.getName(), esAdmin));
     }
     @Operation(summary = "Actualiza los datos de una incidencia (solo ADMIN)")
     @PutMapping("/{idIncidencia}")
     public ResponseEntity<?> actualizarIncidencia(
             @PathVariable Integer idIncidencia,
-            @Valid @RequestBody ActualizarIncidenciaDTO body) {
-        return ResponseEntity.ok(incidenciaService.actualizarIncidencia(idIncidencia, body));
+            @Valid @RequestBody ActualizarIncidenciaDTO body,
+            Authentication authentication) {
+        return ResponseEntity.ok(incidenciaService.actualizarIncidencia(idIncidencia, body, authentication.getName()));
     }
     @Operation(summary = "Elimina una incidencia (solo ADMIN)")
     @DeleteMapping("/{idIncidencia}")

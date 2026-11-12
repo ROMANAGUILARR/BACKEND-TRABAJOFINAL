@@ -8,7 +8,7 @@
 -- =============================================================
 
 -- ADMIN
-INSERT IGNORE INTO usuario (
+INSERT INTO usuario (
   nombre_completo, apellido_completo, dni, telefono,
   correo_electronico, nombre_usuario, contrasena,
   pregunta_seguridad, respuesta_pregunta, puntos, rol
@@ -18,10 +18,10 @@ INSERT IGNORE INTO usuario (
   '$2a$10$3SYVNMxxjdWO/PFVnCTYAuzSZdgq0k9nkk/wKNtM7cEOZqOtUp9Fe',
   '¿Cuál es el nombre de la mascota?', 'rex',
   0, 'ADMIN'
-);
+) ON CONFLICT (nombre_usuario) DO NOTHING;
 
 -- CIUDADANO
-INSERT IGNORE INTO usuario (
+INSERT INTO usuario (
   nombre_completo, apellido_completo, dni, telefono,
   correo_electronico, nombre_usuario, contrasena,
   pregunta_seguridad, respuesta_pregunta, puntos, rol
@@ -31,4 +31,4 @@ INSERT IGNORE INTO usuario (
   '$2a$10$LxUe3PXGxJyanqNNW2RFG.LqzsbnnO1.638aCgUJSpv11//0vH4JG',
   '¿Cuál es el nombre de la mascota?', 'rex',
   50, 'CIUDADANO'
-);
+) ON CONFLICT (nombre_usuario) DO NOTHING;
