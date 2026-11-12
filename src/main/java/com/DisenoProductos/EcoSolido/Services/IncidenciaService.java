@@ -191,7 +191,7 @@ public class IncidenciaService  {
         for (IncidenciaEntity prev : posiblesDuplicados) {
             double distancia = calcularDistancia(prev.getLatitud(), prev.getLongitud(), incidenciaDTO.getLatitud(), incidenciaDTO.getLongitud());
             if (distancia <= 50.0) {
-                throw new DuplicateIncidentException("Esta incidencia ya fue registrada anteriormente. No se asignaran puntos adicionales.");
+                throw new DuplicateIncidentException("Esta incidencia ya fue registrada anteriormente. No se asignarán puntos adicionales.");
             }
         }
         verificarReportadaPorOtroVecino(incidenciaDTO, usuario);
@@ -244,7 +244,7 @@ public class IncidenciaService  {
 
     public Map<String, String> generarDescripcionYTitulo(List<String> urlFotos){
         if (urlFotos == null || urlFotos.isEmpty()) {
-            return Map.of("descripcion", "No se proporcionaron imagenes.", "titulo", "");
+            return Map.of("descripcion", "No se proporcionaron imágenes.", "titulo", "");
         }
         try {
             return huggingFaceIntegration.describirYTitrular(urlFotos);

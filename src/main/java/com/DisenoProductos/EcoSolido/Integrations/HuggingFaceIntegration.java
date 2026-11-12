@@ -98,7 +98,8 @@ public class HuggingFaceIntegration {
                     "text", "Analiza estas imagenes de una incidencia ambiental urbana. " +
                             "Responde EXACTAMENTE con este formato, sin texto adicional:\n" +
                             "TITULO: <titulo corto de maximo 6 palabras>\n" +
-                            "DESCRIPCION: <descripcion de 2 oraciones sobre lo que ves en la imagen>"
+                            "DESCRIPCION: <descripcion de 2 oraciones sobre lo que ves en la imagen>\n" +
+                            "Escribe el titulo y la descripcion en español con ortografía correcta, tildes incluidas."
             ));
 
             for (String entrada : imagenes) {
@@ -242,7 +243,7 @@ public class HuggingFaceIntegration {
                 "Cubre separacion en casa, almacenamiento, reduccion/reutilizacion y disposicion final o reciclaje. " +
                 (contexto.isEmpty() ? "" :
                         "El ciudadano pide especificamente lo siguiente, prioriza responder a esto: \"" + contexto + "\". ") +
-                "Cada recomendacion debe ser una sola oracion clara en espanol de maximo 35 palabras, sin numeracion. " +
+                "Cada recomendacion debe ser una sola oracion clara en español, con ortografía correcta y tildes, de maximo 35 palabras, sin numeracion. " +
                 "Responde SOLO con JSON valido con este formato exacto: " +
                 "{\"recomendaciones\": [\"...\", \"...\", \"...\", \"...\"]}";
     }
