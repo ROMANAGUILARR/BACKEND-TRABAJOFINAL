@@ -82,6 +82,16 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    // Última capa: la base de datos rechazó el dato por una restricción (CHECK, UNIQUE, NOT NULL)
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<?> handleDataIntegrity(org.springframework.dao.DataIntegrityViolationException ex) {
+        return ResponseEntity.badRequest()
+                .body(Map.of(
+                    "error", "Datos inválidos",
+                    "message", "La base de datos rechazó la operación porque algún dato no cumple sus reglas (formato, longitud o valor repetido)."
+                ));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGenericError(Exception ex) {
         return ResponseEntity.internalServerError()
