@@ -1,11 +1,15 @@
 name: CI/CD - Pruebas y Deploy a Render
 
-# Se ejecuta con cada cambio en la rama main (y se puede lanzar a mano desde la pestaña Actions).
+# Las pruebas corren en cada push a main, fix, Dev o Feature-Itzair (y se puede lanzar a mano
+# desde la pestaña Actions). Solo en main, si las pruebas pasan, se despliega en Render.
 # En un pull request hacia main solo corre las pruebas, sin desplegar.
 on:
   push:
     branches:
       - main
+      - fix
+      - Dev
+      - Feature-Itzair
   pull_request:
     branches:
       - main
